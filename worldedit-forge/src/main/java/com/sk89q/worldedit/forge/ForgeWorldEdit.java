@@ -19,13 +19,24 @@
 
 package com.sk89q.worldedit.forge;
 
+import com.fastasyncworldedit.core.FAWEPlatformAdapterImpl;
+import com.fastasyncworldedit.core.Fawe;
+import com.fastasyncworldedit.core.IFawe;
+import com.fastasyncworldedit.core.queue.implementation.QueueHandler;
+import com.fastasyncworldedit.core.queue.implementation.preloader.Preloader;
+import com.fastasyncworldedit.core.regions.FaweMaskManager;
+import com.fastasyncworldedit.core.util.TaskManager;
 import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sk89q.worldedit.LocalSession;
 import com.sk89q.worldedit.WorldEdit;
+import com.sk89q.worldedit.command.util.PermissionCondition;
 import com.sk89q.worldedit.event.platform.PlatformReadyEvent;
+import com.sk89q.worldedit.event.platform.PlatformsRegisteredEvent;
 import com.sk89q.worldedit.event.platform.SessionIdleEvent;
+import com.sk89q.worldedit.extension.platform.Capability;
 import com.sk89q.worldedit.extension.platform.Platform;
+import com.sk89q.worldedit.extension.platform.PlatformManager;
 import com.sk89q.worldedit.forge.net.handler.InternalPacketHandler;
 import com.sk89q.worldedit.forge.net.handler.WECUIPacketHandler;
 import com.sk89q.worldedit.forge.net.packet.LeftClickAirEventMessage;
@@ -41,18 +52,25 @@ import com.sk89q.worldedit.world.block.BlockType;
 import com.sk89q.worldedit.world.entity.EntityType;
 import com.sk89q.worldedit.world.item.ItemCategory;
 import com.sk89q.worldedit.world.item.ItemType;
-import net.minecraft.command.CommandSource;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.tags.ItemTags;
-import net.minecraft.util.Hand;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.World;
+import com.sk89q.worldedit.world.registry.BundledBlockData;
+import com.sk89q.worldedit.world.registry.BundledItemData;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.CommandEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty;
+import net.minecraftforge.event.server.ServerStartedEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -61,19 +79,23 @@ import net.minecraftforge.fml.ModContainer;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.event.server.FMLServerAboutToStartEvent;
-import net.minecraftforge.fml.event.server.FMLServerStartedEvent;
-import net.minecraftforge.fml.event.server.FMLServerStoppingEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLPaths;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.apache.logging.log4j.Logger;
+import org.enginehub.piston.Command;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.sk89q.worldedit.forge.ForgeAdapter.adaptPlayer;
@@ -83,7 +105,7 @@ import static com.sk89q.worldedit.internal.anvil.ChunkDeleter.DELCHUNKS_FILE_NAM
  * The Forge implementation of WorldEdit.
  */
 @Mod(ForgeWorldEdit.MOD_ID)
-public class ForgeWorldEdit {
+public class ForgeWorldEdit implements IFawe {
 
     private static final Logger LOGGER = LogManagerCompat.getLogger();
     public static final String MOD_ID = "worldedit";
@@ -103,7 +125,12 @@ public class ForgeWorldEdit {
 
     public ForgeWorldEdit() {
         inst = this;
-
+        try{
+            Fawe.set(this);
+            Fawe.setupInjector();
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         modBus.addListener(this::init);
 
@@ -123,7 +150,7 @@ public class ForgeWorldEdit {
                 throw new UncheckedIOException(e);
             }
         }
-
+        setupPlatform();
         WECUIPacketHandler.init();
         InternalPacketHandler.init();
         proxy.registerHandlers();
@@ -135,76 +162,117 @@ public class ForgeWorldEdit {
         this.platform = new ForgePlatform(this);
 
         WorldEdit.getInstance().getPlatformManager().register(platform);
-
+        config = new ForgeConfiguration(this);
 //  TODO      if (ModList.get().isLoaded("sponge")) {
 //            this.provider = new ForgePermissionsProvider.SpongePermissionsProvider();
 //        } else {
         this.provider = new ForgePermissionsProvider.VanillaPermissionsProvider(platform);
+        WorldEdit.getInstance().getEventBus().post(new PlatformsRegisteredEvent());
+        BundledBlockData.getInstance();
+        BundledItemData.getInstance();
 //        }
     }
 
-    private void setupRegistries() {
+    private void setupRegistries(MinecraftServer server) {
+
         // Blocks
-        for (ResourceLocation name : ForgeRegistries.BLOCKS.getKeys()) {
+        System.out.println("BLOCKS");
+
+        for (ResourceLocation name : net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKeys()) {
+
             if (BlockType.REGISTRY.get(name.toString()) == null) {
-                BlockType.REGISTRY.register(name.toString(), new BlockType(name.toString(),
-                    input -> ForgeAdapter.adapt(ForgeAdapter.adapt(input.getBlockType()).getDefaultState())));
+                System.out.println("Attempting to register " + name.toString());
+                BlockType.REGISTRY.register(name.toString(), new BlockType(
+                        name.toString(),
+                        Registry.BLOCK.getId(Registry.BLOCK.get(name)),
+                        net.minecraftforge.registries.ForgeRegistries.BLOCKS.getValue(name).getStateDefinition().getPossibleStates().stream().map(
+                                ForgeAdapter::adapt).collect(Collectors.toList())));
             }
         }
+
         // Items
+        System.out.println("ITEMS");
         for (ResourceLocation name : ForgeRegistries.ITEMS.getKeys()) {
             if (ItemType.REGISTRY.get(name.toString()) == null) {
                 ItemType.REGISTRY.register(name.toString(), new ItemType(name.toString()));
             }
         }
         // Entities
-        for (ResourceLocation name : ForgeRegistries.ENTITIES.getKeys()) {
+        for (ResourceLocation name : net.minecraftforge.registries.ForgeRegistries.ENTITIES.getKeys()) {
             if (EntityType.REGISTRY.get(name.toString()) == null) {
                 EntityType.REGISTRY.register(name.toString(), new EntityType(name.toString()));
             }
         }
         // Biomes
-        for (ResourceLocation name : ForgeRegistries.BIOMES.getKeys()) {
+        for (ResourceLocation name : server.registryAccess().registryOrThrow(Registry.BIOME_REGISTRY).keySet()) {
             if (BiomeType.REGISTRY.get(name.toString()) == null) {
                 BiomeType.REGISTRY.register(name.toString(), new BiomeType(name.toString()));
             }
         }
         // Tags
-        for (ResourceLocation name : BlockTags.getCollection().getRegisteredTags()) {
+        Registry.BLOCK.getTagNames().map(TagKey::location).forEach(name -> {
             if (BlockCategory.REGISTRY.get(name.toString()) == null) {
                 BlockCategory.REGISTRY.register(name.toString(), new BlockCategory(name.toString()));
             }
-        }
-        for (ResourceLocation name : ItemTags.getCollection().getRegisteredTags()) {
+        });
+        Registry.ITEM.getTagNames().map(TagKey::location).forEach(name -> {
             if (ItemCategory.REGISTRY.get(name.toString()) == null) {
                 ItemCategory.REGISTRY.register(name.toString(), new ItemCategory(name.toString()));
+            }
+        });
+    }
+
+    @SubscribeEvent
+    public void registerCommands(RegisterCommandsEvent event) {
+        WorldEdit.getInstance().getEventBus().post(new PlatformsRegisteredEvent());
+
+        PlatformManager manager = WorldEdit.getInstance().getPlatformManager();
+        Platform commandsPlatform = manager.queryCapability(Capability.USER_COMMANDS);
+        if (commandsPlatform != platform || !platform.isHookingEvents()) {
+            // We're not in control of commands/events -- do not register.
+            return;
+        }
+
+        List<Command> commands = manager.getPlatformCommandManager().getCommandManager()
+                .getAllCommands().collect(Collectors.toList());
+        for (Command command : commands) {
+            CommandWrapper.register(event.getDispatcher(), command);
+            Set<String> perms = command.getCondition().as(PermissionCondition.class)
+                    .map(PermissionCondition::getPermissions)
+                    .orElseGet(Collections::emptySet);
+            if (!perms.isEmpty()) {
+                perms.forEach(getPermissionsProvider()::registerPermission);
             }
         }
     }
 
     @SubscribeEvent
-    public void serverAboutToStart(FMLServerAboutToStartEvent event) {
+    public void serverAboutToStart(ServerStartingEvent event) {
         final Path delChunks = workingDir.resolve(DELCHUNKS_FILE_NAME);
         if (Files.exists(delChunks)) {
             ChunkDeleter.runFromFile(delChunks, true);
         }
+        System.out.println("SERVER ABOUT TO START");
+
     }
 
     @SubscribeEvent
-    public void serverStopping(FMLServerStoppingEvent event) {
+    public void serverStopping(ServerStoppingEvent event) {
         WorldEdit worldEdit = WorldEdit.getInstance();
         worldEdit.getSessionManager().unload();
         worldEdit.getPlatformManager().unregister(platform);
     }
 
     @SubscribeEvent
-    public void serverStarted(FMLServerStartedEvent event) {
-        setupPlatform();
-        setupRegistries();
+    public void serverStarted(ServerStartedEvent event) {
+        System.out.println("SERVER STARTED");
 
-        config = new ForgeConfiguration(this);
+        setupRegistries(event.getServer());
+
+
         config.load();
-        WorldEdit.getInstance().getEventBus().post(new PlatformReadyEvent());
+
+        WorldEdit.getInstance().getEventBus().post(new PlatformReadyEvent(platform));
     }
 
     @SubscribeEvent
@@ -213,10 +281,11 @@ public class ForgeWorldEdit {
             return;
         }
 
-        if (!platform.isHookingEvents())
+        if (!platform.isHookingEvents()) {
             return; // We have to be told to catch these events
+        }
 
-        if (event.getWorld().isRemote && event instanceof LeftClickEmpty) {
+        if (event.getWorld().isClientSide() && event instanceof LeftClickEmpty) {
             // catch LCE, pass it to server
             InternalPacketHandler.getHandler().sendToServer(new LeftClickAirEventMessage());
             return;
@@ -224,18 +293,18 @@ public class ForgeWorldEdit {
 
         boolean isLeftDeny = event instanceof PlayerInteractEvent.LeftClickBlock
                 && ((PlayerInteractEvent.LeftClickBlock) event)
-                        .getUseItem() == Event.Result.DENY;
+                .getUseItem() == Event.Result.DENY;
         boolean isRightDeny =
                 event instanceof PlayerInteractEvent.RightClickBlock
                         && ((PlayerInteractEvent.RightClickBlock) event)
-                                .getUseItem() == Event.Result.DENY;
-        if (isLeftDeny || isRightDeny || event.getEntity().world.isRemote || event.getHand() == Hand.OFF_HAND) {
+                        .getUseItem() == Event.Result.DENY;
+        if (isLeftDeny || isRightDeny || event.getEntity().level.isClientSide || event.getHand() == InteractionHand.OFF_HAND) {
             return;
         }
 
         WorldEdit we = WorldEdit.getInstance();
-        ForgePlayer player = adaptPlayer((ServerPlayerEntity) event.getPlayer());
-        ForgeWorld world = getWorld(event.getPlayer().world);
+        ForgePlayer player = adaptPlayer((ServerPlayer) event.getPlayer());
+        ForgeWorld world = getWorld(event.getPlayer().level);
 
         if (event instanceof PlayerInteractEvent.LeftClickEmpty) {
             we.handleArmSwing(player); // this event cannot be canceled
@@ -268,12 +337,9 @@ public class ForgeWorldEdit {
 
     @SubscribeEvent
     public void onCommandEvent(CommandEvent event) throws CommandSyntaxException {
-        ParseResults<CommandSource> parseResults = event.getParseResults();
-        if (!(parseResults.getContext().getSource().getEntity() instanceof ServerPlayerEntity)) {
-            return;
-        }
-        ServerPlayerEntity player = parseResults.getContext().getSource().asPlayer();
-        if (player.world.isRemote()) {
+        ParseResults<CommandSourceStack> parseResults = event.getParseResults();
+        ServerPlayer player = parseResults.getContext().getSource().getPlayerOrException();
+        if (player.level.isClientSide()) {
             return;
         }
         if (parseResults.getContext().getCommand() != CommandWrapper.FAKE_COMMAND) {
@@ -281,16 +347,16 @@ public class ForgeWorldEdit {
         }
         event.setCanceled(true);
         WorldEdit.getInstance().getEventBus().post(new com.sk89q.worldedit.event.platform.CommandEvent(
-            adaptPlayer(parseResults.getContext().getSource().asPlayer()),
-            parseResults.getReader().getString()
+                adaptPlayer(parseResults.getContext().getSource().getPlayerOrException()),
+                parseResults.getReader().getString()
         ));
     }
 
     @SubscribeEvent
     public void onPlayerLogOut(PlayerEvent.PlayerLoggedOutEvent event) {
-        if (event.getPlayer() instanceof ServerPlayerEntity) {
+        if (event.getPlayer() instanceof ServerPlayer) {
             WorldEdit.getInstance().getEventBus()
-                    .post(new SessionIdleEvent(new ForgePlayer.SessionKeyImpl((ServerPlayerEntity) event.getPlayer())));
+                    .post(new SessionIdleEvent(new ForgePlayer.SessionKeyImpl((ServerPlayer) event.getPlayer())));
         }
     }
 
@@ -309,7 +375,7 @@ public class ForgeWorldEdit {
      * @param player the player
      * @return the session
      */
-    public LocalSession getSession(ServerPlayerEntity player) {
+    public LocalSession getSession(ServerPlayer player) {
         checkNotNull(player);
         return WorldEdit.getInstance().getSessionManager().get(adaptPlayer(player));
     }
@@ -320,18 +386,55 @@ public class ForgeWorldEdit {
      * @param world the world
      * @return the WorldEdit world
      */
-    public ForgeWorld getWorld(World world) {
+    public ForgeWorld getWorld(Level world) {
         checkNotNull(world);
         return new ForgeWorld(world);
     }
 
-    /**
-     * Get the WorldEdit proxy for the platform.
-     *
-     * @return the WorldEdit platform
-     */
-    public Platform getPlatform() {
-        return this.platform;
+    @Override
+    public File getDirectory() {
+        return null;
+    }
+
+    @Override
+    public TaskManager getTaskManager() {
+        return null;
+    }
+
+    @Override
+    public Collection<FaweMaskManager> getMaskManagers() {
+        return null;
+    }
+
+
+    @Override
+    public String getPlatform() {
+        return this.platform.toString();
+    }
+
+    @Override
+    public UUID getUUID(final String name) {
+        return null;
+    }
+
+    @Override
+    public String getName(final UUID uuid) {
+        return null;
+    }
+
+    @Override
+    public QueueHandler getQueueHandler() {
+        return null;
+    }
+
+    @Override
+    public Preloader getPreloader(final boolean initialise) {
+        return null;
+    }
+
+    @Override
+    public FAWEPlatformAdapterImpl getPlatformAdapter() {
+        return null;
     }
 
     /**

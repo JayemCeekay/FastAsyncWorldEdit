@@ -20,8 +20,8 @@
 package com.sk89q.worldedit.forge.net.handler;
 
 import com.sk89q.worldedit.forge.ForgeWorldEdit;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.network.NetworkRegistry;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.network.NetworkRegistry;
 
 import java.util.function.Predicate;
 

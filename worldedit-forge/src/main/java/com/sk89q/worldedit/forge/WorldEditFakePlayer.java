@@ -20,19 +20,15 @@
 package com.sk89q.worldedit.forge;
 
 import com.mojang.authlib.GameProfile;
-import net.minecraft.inventory.container.INamedContainerProvider;
-import net.minecraft.world.server.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraftforge.common.util.FakePlayer;
-
-import javax.annotation.Nullable;
-import java.util.OptionalInt;
 import java.util.UUID;
 
 public class WorldEditFakePlayer extends FakePlayer {
 
     private static final GameProfile FAKE_GAME_PROFILE = new GameProfile(UUID.nameUUIDFromBytes("worldedit".getBytes()), "[WorldEdit]");
 
-    public WorldEditFakePlayer(ServerWorld world) {
+    public WorldEditFakePlayer(ServerLevel world) {
         super(world, FAKE_GAME_PROFILE);
     }
 
@@ -41,8 +37,4 @@ public class WorldEditFakePlayer extends FakePlayer {
         return true;
     }
 
-    @Override
-    public OptionalInt openContainer(@Nullable INamedContainerProvider container) {
-        return OptionalInt.empty();
-    }
 }

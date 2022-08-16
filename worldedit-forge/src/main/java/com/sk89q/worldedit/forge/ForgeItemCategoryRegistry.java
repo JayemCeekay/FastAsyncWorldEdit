@@ -21,20 +21,12 @@ package com.sk89q.worldedit.forge;
 
 import com.sk89q.worldedit.world.item.ItemType;
 import com.sk89q.worldedit.world.registry.ItemCategoryRegistry;
-import net.minecraft.tags.ItemTags;
-import net.minecraft.tags.Tag;
-import net.minecraft.util.ResourceLocation;
 
-import java.util.Collections;
-import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class ForgeItemCategoryRegistry implements ItemCategoryRegistry {
     @Override
     public Set<ItemType> getCategorisedByName(String category) {
-        return Optional.ofNullable(ItemTags.getCollection().get(new ResourceLocation(category)))
-                .map(Tag::getAllElements).orElse(Collections.emptySet())
-                .stream().map(ForgeAdapter::adapt).collect(Collectors.toSet());
+      return ForgeRegistries.getInstance().getItemCategoryRegistry().getCategorisedByName(category);
     }
 }

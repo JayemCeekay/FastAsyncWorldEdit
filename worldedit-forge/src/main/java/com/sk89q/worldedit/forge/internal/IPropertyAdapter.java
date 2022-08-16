@@ -1,3 +1,5 @@
+package com.sk89q.worldedit.forge.internal;
+
 /*
  * WorldEdit, a Minecraft world manipulation toolkit
  * Copyright (C) sk89q <http://www.sk89q.com>
@@ -17,15 +19,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.sk89q.worldedit.forge;
-
-import static com.google.common.base.Preconditions.checkArgument;
-
 import com.google.common.collect.ImmutableList;
 import com.sk89q.worldedit.registry.state.Property;
 
 import java.util.List;
 import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 class IPropertyAdapter<T extends Comparable<T>> implements Property<T> {
 

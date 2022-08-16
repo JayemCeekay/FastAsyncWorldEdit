@@ -19,11 +19,12 @@
 
 package com.sk89q.worldedit.forge.gui;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.sk89q.worldedit.forge.ForgeWorldEdit;
-import net.minecraft.client.gui.widget.button.Button;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.ITextComponent;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import org.lwjgl.opengl.GL11;
@@ -35,27 +36,28 @@ public class GuiReferenceCard extends Screen {
     private int backgroundWidth = 256;
     private int backgroundHeight = 256;
 
-    public GuiReferenceCard(ITextComponent title) {
+    public GuiReferenceCard(TextComponent title) {
         super(title);
     }
 
     @Override
     public void init() {
-        this.addButton(closeButton = new Button(
+        this.closeButton = new Button(
                 (this.width - this.backgroundWidth + 56) / 2, (this.height + this.backgroundHeight) / 2,
-                200, 20, "Close",
-                button -> this.minecraft.player.closeScreen()));
+                200, 20, new TextComponent("close"),
+                button -> this.minecraft.setScreen((Screen) null));
     }
 
+
     @Override
-    public void render(int mouseX, int mouseY, float par3) {
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float par3) {
         int x = (this.width - this.backgroundWidth) / 2;
         int y = (this.height - this.backgroundHeight) / 2 - this.closeButton.getHeight();
 
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        this.minecraft.textureManager.bindTexture(new ResourceLocation(ForgeWorldEdit.MOD_ID, "textures/gui/reference.png"));
-        this.blit(x, y, 0, 0, this.backgroundWidth, this.backgroundHeight);
-        super.render(mouseX, mouseY, par3);
+        this.minecraft.textureManager.bindForSetup(new ResourceLocation(ForgeWorldEdit.MOD_ID, "textures/gui/reference.png"));
+        this.blit(poseStack, x, y, 0, 0, this.backgroundWidth, this.backgroundHeight);
+        super.render(poseStack, mouseX, mouseY, par3);
     }
 
     @Override

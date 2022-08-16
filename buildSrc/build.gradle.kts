@@ -19,6 +19,10 @@ repositories {
             includeGroupByRegex("io\\.papermc\\..*")
         }
     }
+    maven { url = uri("https://maven.minecraftforge.net/") }
+    maven {
+        url = uri("https://plugins.gradle.org/m2/")
+    }
 }
 
 val properties = Properties().also { props ->

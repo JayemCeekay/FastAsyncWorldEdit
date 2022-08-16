@@ -23,10 +23,16 @@ fun Project.applyPlatformAndCoreConfiguration() {
     apply(plugin = "com.github.johnrengelman.shadow")
     apply(plugin = "signing")
 
-    applyCommonJavaConfiguration(
-            sourcesJar = name in setOf("worldedit-core", "worldedit-bukkit"),
-    )
-
+    if(name != "worldedit-forge") {
+        applyCommonJavaConfiguration(
+                sourcesJar = name in setOf("worldedit-core", "worldedit-bukkit"),
+        )
+    } else {
+        applyCommonJavaConfiguration(
+                sourcesJar = name in setOf("worldedit-forge"),
+                banSlf4j = false
+        )
+    }
     if (project.hasProperty("buildnumber")) {
         ext["internalVersion"] = "$version;${rootProject.ext["gitCommitHash"]}"
     } else {
@@ -38,7 +44,7 @@ fun Project.applyPlatformAndCoreConfiguration() {
         withJavadocJar()
     }
 
-    if (name in setOf("worldedit-core", "worldedit-bukkit", "worldedit-cli")) {
+    if (name in setOf("worldedit-core", "worldedit-bukkit", "worldedit-cli", "worldedit-forge")) {
         the<JavaPluginExtension>().withSourcesJar()
     }
 
@@ -115,7 +121,7 @@ fun Project.applyPlatformAndCoreConfiguration() {
         }
     }
 
-    if (name != "worldedit-fabric") {
+    if (name != "worldedit-forge") {
         configurations["compileClasspath"].apply {
             resolutionStrategy.componentSelection {
                 withModule("org.slf4j:slf4j-api") {

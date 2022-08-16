@@ -22,8 +22,8 @@ package com.sk89q.worldedit.forge;
 import com.sk89q.worldedit.world.registry.BlockMaterial;
 import com.sk89q.worldedit.world.registry.PassthroughBlockMaterial;
 
-import net.minecraft.block.material.PushReaction;
-import net.minecraft.block.material.Material;
+import net.minecraft.world.level.material.Material;
+import net.minecraft.world.level.material.PushReaction;
 
 import javax.annotation.Nullable;
 
@@ -48,7 +48,7 @@ public class ForgeBlockMaterial extends PassthroughBlockMaterial {
 
     @Override
     public boolean isOpaque() {
-        return delegate.isOpaque();
+        return delegate.isSolidBlocking();
     }
 
     @Override
@@ -73,7 +73,7 @@ public class ForgeBlockMaterial extends PassthroughBlockMaterial {
 
     @Override
     public boolean isMovementBlocker() {
-        return delegate.blocksMovement();
+        return delegate.blocksMotion();
     }
 
     @Override
@@ -83,7 +83,7 @@ public class ForgeBlockMaterial extends PassthroughBlockMaterial {
 
     @Override
     public boolean isToolRequired() {
-        return !delegate.isToolNotRequired();
+        return false;
     }
 
     @Override

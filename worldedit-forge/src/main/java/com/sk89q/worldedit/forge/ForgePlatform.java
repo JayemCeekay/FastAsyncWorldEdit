@@ -19,6 +19,7 @@
 
 package com.sk89q.worldedit.forge;
 
+import com.fastasyncworldedit.core.extent.processor.lighting.RelighterFactory;
 import com.google.common.collect.Sets;
 import com.sk89q.worldedit.command.util.PermissionCondition;
 import com.sk89q.worldedit.entity.Player;
@@ -31,17 +32,18 @@ import com.sk89q.worldedit.util.SideEffect;
 import com.sk89q.worldedit.world.DataFixer;
 import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.registry.Registries;
-import net.minecraft.command.Commands;
-import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.SharedConstants;
+import net.minecraft.commands.Commands;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.dedicated.DedicatedServer;
-import net.minecraft.server.management.PlayerList;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.SharedConstants;
-import net.minecraft.world.server.ServerWorld;
-import net.minecraftforge.fml.server.ServerLifecycleHooks;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
+import net.minecraftforge.server.ServerLifecycleHooks;
 import org.enginehub.piston.Command;
 import org.enginehub.piston.CommandManager;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -81,7 +83,7 @@ class ForgePlatform extends AbstractPlatform implements MultiUserPlatform {
 
     @Override
     public int getDataVersion() {
-        return SharedConstants.getVersion().getWorldVersion();
+        return SharedConstants.getCurrentVersion().getWorldVersion();
     }
 
     @Override
@@ -110,17 +112,12 @@ class ForgePlatform extends AbstractPlatform implements MultiUserPlatform {
         return watchdog;
     }
 
-    @Override
-    public List<? extends World> getWorlds() {
-        Iterable<ServerWorld> worlds = server.getWorlds();
-        List<World> ret = new ArrayList<>();
-        for (ServerWorld world : worlds) {
 
     @Override
     public List<? extends World> getWorlds() {
-        Iterable<ServerWorld> worlds = server.getWorlds();
+        Iterable<ServerLevel> worlds = server.getAllLevels();
         List<World> ret = new ArrayList<>();
-        for (ServerWorld world : worlds) {
+        for (ServerLevel world : worlds) {
             ret.add(new ForgeWorld(world));
         }
         return ret;
@@ -132,7 +129,7 @@ class ForgePlatform extends AbstractPlatform implements MultiUserPlatform {
         if (player instanceof ForgePlayer) {
             return player;
         } else {
-            ServerPlayerEntity entity = server.getPlayerList().getPlayerByUsername(player.getName());
+            ServerPlayer entity = server.getPlayerList().getPlayerByName(player.getName());
             return entity != null ? new ForgePlayer(entity) : null;
         }
     }
@@ -143,8 +140,8 @@ class ForgePlatform extends AbstractPlatform implements MultiUserPlatform {
         if (world instanceof ForgeWorld) {
             return world;
         } else {
-            for (ServerWorld ws : server.getWorlds()) {
-                if (ws.getWorldInfo().getWorldName().equals(world.getName())) {
+            for (ServerLevel ws : server.getAllLevels()) {
+                if (ws.dimension().location().equals(world.getName())) {
                     return new ForgeWorld(ws);
                 }
             }
@@ -156,7 +153,7 @@ class ForgePlatform extends AbstractPlatform implements MultiUserPlatform {
     @Override
     public void registerCommands(CommandManager manager) {
         if (server == null) return;
-        Commands mcMan = server.getCommandManager();
+        Commands mcMan = server.getCommands();
 
         for (Command command : manager.getAllCommands().collect(toList())) {
             CommandWrapper.register(mcMan.getDispatcher(), command);
@@ -169,10 +166,15 @@ class ForgePlatform extends AbstractPlatform implements MultiUserPlatform {
         }
     }
 
-    @Override
+
     public void registerGameHooks() {
         // We registered the events already anyway, so we just 'turn them on'
         hookingEvents = true;
+    }
+
+    @Override
+    public void setGameHooksEnabled(final boolean enabled) {
+        this.hookingEvents = enabled;
     }
 
     @Override
@@ -199,6 +201,22 @@ class ForgePlatform extends AbstractPlatform implements MultiUserPlatform {
     @Override
     public String getId() {
         return "intellectualsites:forge";
+    }
+
+    @NotNull
+    @Override
+    public RelighterFactory getRelighterFactory() {
+        return null;
+    }
+
+    @Override
+    public int versionMinY() {
+        return -64;
+    }
+
+    @Override
+    public int versionMaxY() {
+        return 320;
     }
     //FAWE end
 
@@ -230,7 +248,7 @@ class ForgePlatform extends AbstractPlatform implements MultiUserPlatform {
     public Collection<Actor> getConnectedUsers() {
         List<Actor> users = new ArrayList<>();
         PlayerList scm = server.getPlayerList();
-        for (ServerPlayerEntity entity : scm.getPlayers()) {
+        for (ServerPlayer entity : scm.getPlayers()) {
             if (entity != null) {
                 users.add(new ForgePlayer(entity));
             }

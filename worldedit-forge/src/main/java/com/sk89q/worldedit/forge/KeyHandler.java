@@ -20,18 +20,21 @@
 package com.sk89q.worldedit.forge;
 
 import com.sk89q.worldedit.forge.gui.GuiReferenceCard;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.util.text.StringTextComponent;
+
+import net.minecraft.network.chat.TextComponent;
+import net.minecraftforge.client.ClientRegistry;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
 import org.lwjgl.glfw.GLFW;
+
+
 
 public class KeyHandler {
 
     private static Minecraft mc = Minecraft.getInstance();
-    private static KeyBinding mainKey = new KeyBinding("WorldEdit Reference", GLFW.GLFW_KEY_L, "WorldEdit");
+    private static KeyMapping mainKey = new KeyMapping("WorldEdit Reference", GLFW.GLFW_KEY_L, "WorldEdit");
 
     public KeyHandler() {
         ClientRegistry.registerKeyBinding(mainKey);
@@ -39,8 +42,8 @@ public class KeyHandler {
 
     @SubscribeEvent
     public void onKey(InputEvent.KeyInputEvent evt) {
-        if (mc.player != null && mc.world != null && mainKey.isPressed()) {
-            mc.displayGuiScreen(new GuiReferenceCard(new StringTextComponent("WorldEdit Reference")));
+        if (mc.player != null && mc.level != null && mainKey.isDown()) {
+            mc.pushGuiLayer(new GuiReferenceCard(new TextComponent("WorldEdit Reference")));
         }
     }
 

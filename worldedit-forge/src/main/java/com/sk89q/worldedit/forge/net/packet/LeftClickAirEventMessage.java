@@ -21,9 +21,9 @@ package com.sk89q.worldedit.forge.net.packet;
 
 import com.sk89q.worldedit.forge.ForgeWorldEdit;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.network.PacketBuffer;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty;
-import net.minecraftforge.fml.network.NetworkEvent.Context;
+import net.minecraftforge.network.NetworkEvent;
 
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -32,8 +32,8 @@ import java.util.function.Supplier;
 public class LeftClickAirEventMessage {
 
     public static final class Handler {
-        public static void handle(final LeftClickAirEventMessage message, Supplier<Context> ctx) {
-            Context context = ctx.get();
+        public static void handle(final LeftClickAirEventMessage message, Supplier<NetworkEvent.Context> ctx) {
+            NetworkEvent.Context context = ctx.get();
             context.enqueueWork(() -> ForgeWorldEdit.inst.onPlayerInteract(new LeftClickEmpty(Objects.requireNonNull(context.getSender()))));
         }
     }
@@ -42,7 +42,7 @@ public class LeftClickAirEventMessage {
         return new LeftClickAirEventMessage();
     }
 
-    public static void encode(LeftClickAirEventMessage msg, PacketBuffer buf) {
+    public static void encode(LeftClickAirEventMessage msg, FriendlyByteBuf buf) {
     }
 
 }

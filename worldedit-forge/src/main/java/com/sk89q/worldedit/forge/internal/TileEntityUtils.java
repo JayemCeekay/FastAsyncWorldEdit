@@ -19,14 +19,11 @@
 
 package com.sk89q.worldedit.forge.internal;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 
-import com.sk89q.worldedit.math.BlockVector3;
-
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
 
 /**
  * Utility methods for setting tile entities in the world.
@@ -44,18 +41,16 @@ public final class TileEntityUtils {
      * @param position the position
      * @param tag the tag for the tile entity
      */
-    static boolean setTileEntity(World world, BlockPos position, CompoundNBT tag) {
-        TileEntity tileEntity = TileEntity.create(tag);
+    static boolean setTileEntity(Level world, BlockPos position, CompoundTag tag) {
+        BlockEntity tileEntity = BlockEntity.loadStatic(position, world.getBlockState(position), tag);
         if (tileEntity == null) {
             return false;
         }
-        world.setTileEntity(new BlockPos(position.getX(), position.getY(), position.getZ()), tileEntity);
+        world.setBlockEntity(tileEntity);
         return true;
     }
 
-    public static CompoundNBT copyNbtData(TileEntity tile) {
-        CompoundNBT tag = new CompoundNBT();
-        tile.write(tag);
-        return tag;
+    public static CompoundTag copyNbtData(BlockEntity tile) {
+        return tile.serializeNBT();
     }
 }

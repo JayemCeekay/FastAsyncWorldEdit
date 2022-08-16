@@ -23,6 +23,7 @@ fun Project.applyCommonConfiguration() {
             name = "Athion"
             url = uri("https://ci.athion.net/plugin/repository/tools/")
         }
+        maven { url = uri("https://maven.minecraftforge.net/") }
     }
 
     configurations.all {

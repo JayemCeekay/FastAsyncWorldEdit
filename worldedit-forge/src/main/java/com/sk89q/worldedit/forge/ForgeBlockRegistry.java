@@ -19,6 +19,7 @@
 
 package com.sk89q.worldedit.forge;
 
+import com.sk89q.worldedit.forge.internal.ForgeTransmogrifier;
 import com.sk89q.worldedit.registry.state.Property;
 import com.sk89q.worldedit.util.formatting.text.Component;
 import com.sk89q.worldedit.util.formatting.text.TranslatableComponent;
@@ -26,9 +27,8 @@ import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockType;
 import com.sk89q.worldedit.world.registry.BlockMaterial;
 import com.sk89q.worldedit.world.registry.BundledBlockRegistry;
-import net.minecraft.block.Block;
-import net.minecraft.block.material.Material;
-import net.minecraft.state.IProperty;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.material.Material;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -42,7 +42,7 @@ public class ForgeBlockRegistry extends BundledBlockRegistry {
 
     @Override
     public Component getRichName(BlockType blockType) {
-        return TranslatableComponent.of(ForgeAdapter.adapt(blockType).getTranslationKey());
+        return TranslatableComponent.of(ForgeAdapter.adapt(blockType).getDescriptionId());
     }
 
     @Override
@@ -51,26 +51,27 @@ public class ForgeBlockRegistry extends BundledBlockRegistry {
         if (block == null) {
             return super.getMaterial(blockType);
         }
-        return materialMap.computeIfAbsent(block.getDefaultState().getMaterial(),
+        return materialMap.computeIfAbsent(block.defaultBlockState().getMaterial(),
                 m -> new ForgeBlockMaterial(m, super.getMaterial(blockType)));
     }
+
 
     @Override
     public Map<String, ? extends Property<?>> getProperties(BlockType blockType) {
         Block block = ForgeAdapter.adapt(blockType);
         Map<String, Property<?>> map = new TreeMap<>();
-        Collection<IProperty<?>> propertyKeys = block
-                .getDefaultState()
+        Collection<net.minecraft.world.level.block.state.properties.Property<?>> propertyKeys = block
+                .defaultBlockState()
                 .getProperties();
-        for (IProperty<?> key : propertyKeys) {
-            map.put(key.getName(), ForgeAdapter.adaptProperty(key));
+        for (net.minecraft.world.level.block.state.properties.Property<?> key : propertyKeys) {
+            map.put(key.getName(), ForgeTransmogrifier.transmogToWorldEditProperty(key));
         }
         return map;
     }
 
     @Override
     public OptionalInt getInternalBlockStateId(BlockState state) {
-        net.minecraft.block.BlockState equivalent = ForgeAdapter.adapt(state);
-        return OptionalInt.of(Block.getStateId(equivalent));
+        net.minecraft.world.level.block.state.BlockState equivalent = ForgeAdapter.adapt(state);
+        return OptionalInt.of(Block.BLOCK_STATE_REGISTRY.getId(equivalent));
     }
 }

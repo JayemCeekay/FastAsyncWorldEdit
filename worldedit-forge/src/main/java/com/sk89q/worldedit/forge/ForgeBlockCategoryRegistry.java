@@ -21,9 +21,10 @@ package com.sk89q.worldedit.forge;
 
 import com.sk89q.worldedit.world.block.BlockType;
 import com.sk89q.worldedit.world.registry.BlockCategoryRegistry;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.Tag;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.tags.TagKey;
 
 import java.util.Collections;
 import java.util.Optional;
@@ -33,8 +34,6 @@ import java.util.stream.Collectors;
 public class ForgeBlockCategoryRegistry implements BlockCategoryRegistry {
     @Override
     public Set<BlockType> getCategorisedByName(String category) {
-        return Optional.ofNullable(BlockTags.getCollection().get(new ResourceLocation(category)))
-                .map(Tag::getAllElements).orElse(Collections.emptySet())
-                .stream().map(ForgeAdapter::adapt).collect(Collectors.toSet());
+        return ForgeRegistries.getInstance().getBlockCategoryRegistry().getCategorisedByName(category);
     }
 }
