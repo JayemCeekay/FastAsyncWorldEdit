@@ -19,15 +19,7 @@ package com.sk89q.worldedit.forge.internal;
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableList;
 import com.sk89q.worldedit.forge.ForgeAdapter;
-import com.sk89q.worldedit.registry.state.BooleanProperty;
-import com.sk89q.worldedit.registry.state.DirectionalProperty;
-import com.sk89q.worldedit.registry.state.EnumProperty;
-import com.sk89q.worldedit.registry.state.IntegerProperty;
 import com.sk89q.worldedit.registry.state.Property;
 import com.sk89q.worldedit.util.Direction;
 import com.sk89q.worldedit.world.block.BlockState;
@@ -36,47 +28,17 @@ import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 /**
  * Raw, un-cached transformations.
  */
 public class ForgeTransmogrifier {
 
-    private static final LoadingCache<net.minecraft.world.level.block.state.properties.Property<?>, Property<?>> PROPERTY_CACHE = CacheBuilder.newBuilder().build(new CacheLoader<>() {
-        @Override
-        public @NotNull Property<?> load(net.minecraft.world.level.block.state.properties.@NotNull Property<?> property) throws Exception {
-            if (property instanceof net.minecraft.world.level.block.state.properties.BooleanProperty) {
-                return new BooleanProperty(property.getName(), ImmutableList.copyOf(((net.minecraft.world.level.block.state.properties.BooleanProperty) property).getPossibleValues()));
-            }
-            if (property instanceof net.minecraft.world.level.block.state.properties.IntegerProperty) {
-                return new IntegerProperty(property.getName(), ImmutableList.copyOf(((net.minecraft.world.level.block.state.properties.IntegerProperty) property).getPossibleValues()));
-            }
-            if (property instanceof DirectionProperty) {
-                return new DirectionalProperty(property.getName(), ((DirectionProperty) property).getPossibleValues().stream()
-                        .map(ForgeAdapter::adaptEnumFacing)
-                        .collect(Collectors.toList()));
-            }
-            if (property instanceof net.minecraft.world.level.block.state.properties.EnumProperty) {
-                // Note: do not make x.getSerializedName a method reference.
-                // It will cause runtime bootstrap exceptions.
-                //noinspection Convert2MethodRef
-                return new EnumProperty(property.getName(),
-                        ((List<String>) ((net.minecraft.world.level.block.state.properties.EnumProperty<?>) property).getPossibleValues().stream().map(e -> ((StringRepresentable) e).getSerializedName()).collect(Collectors.toList())));
-            }
-            return new IPropertyAdapter<>(property);
-        }
-    });
 
-    public static Property<?> transmogToWorldEditProperty(net.minecraft.world.level.block.state.properties.Property<?> property) {
-        return PROPERTY_CACHE.getUnchecked(property);
-    }
 
     public static Map<Property<?>, Object> transmogToWorldEditProperties(BlockType block, Map<net.minecraft.world.level.block.state.properties.Property<?>, Comparable<?>> mcProps) {
         Map<Property<?>, Object> props = new TreeMap<>(Comparator.comparing(Property::getName));

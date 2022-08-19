@@ -23,16 +23,10 @@ fun Project.applyPlatformAndCoreConfiguration() {
     apply(plugin = "com.github.johnrengelman.shadow")
     apply(plugin = "signing")
 
-    if(name != "worldedit-forge") {
-        applyCommonJavaConfiguration(
-                sourcesJar = name in setOf("worldedit-core", "worldedit-bukkit"),
-        )
-    } else {
-        applyCommonJavaConfiguration(
-                sourcesJar = name in setOf("worldedit-forge"),
-                banSlf4j = false
-        )
-    }
+    applyCommonJavaConfiguration(
+            sourcesJar = name in setOf("worldedit-core", "worldedit-bukkit"),
+            banSlf4j = name !in setOf("worldedit-forge", "worldedit-fabric"),
+    )
     if (project.hasProperty("buildnumber")) {
         ext["internalVersion"] = "$version;${rootProject.ext["gitCommitHash"]}"
     } else {
@@ -69,7 +63,14 @@ fun Project.applyPlatformAndCoreConfiguration() {
         publications {
             register<MavenPublication>("maven") {
                 from(javaComponent)
-
+                versionMapping {
+                    usage("java-api") {
+                        fromResolutionOf("runtimeClasspath")
+                    }
+                    usage("java-runtime") {
+                        fromResolutionResult()
+                    }
+                }
                 group = "com.fastasyncworldedit"
                 artifactId = "${rootProject.name}-${project.description}"
                 version = version
@@ -112,7 +113,7 @@ fun Project.applyPlatformAndCoreConfiguration() {
                         developerConnection.set("scm:git://github.com/IntellectualSites/FastAsyncWorldEdit.git")
                     }
 
-                    issueManagement{
+                    issueManagement {
                         system.set("GitHub")
                         url.set("https://github.com/IntellectualSites/FastAsyncWorldEdit/issues")
                     }
@@ -120,21 +121,20 @@ fun Project.applyPlatformAndCoreConfiguration() {
             }
         }
     }
-
-    if (name != "worldedit-forge") {
+/*
         configurations["compileClasspath"].apply {
-            resolutionStrategy.componentSelection {
-                withModule("org.slf4j:slf4j-api") {
-                    reject("No SLF4J allowed on compile classpath")
-                }
+        resolutionStrategy.componentSelection {
+            withModule("org.slf4j:slf4j-api") {
+                reject("No SLF4J allowed on compile classpath")
             }
         }
     }
-
+*/
 }
 
 fun Project.applyShadowConfiguration() {
     tasks.named<ShadowJar>("shadowJar") {
+        archiveClassifier.set("dist")
         dependencies {
             include(project(":worldedit-libs:core"))
             include(project(":worldedit-libs:${project.name.replace("worldedit-", "")}"))
@@ -147,16 +147,21 @@ fun Project.applyShadowConfiguration() {
         exclude("META-INF/maven/**")
         minimize()
     }
+    val javaComponent = components["java"] as AdhocComponentWithVariants
+    // I don't think we want this published (it's the shadow jar)
+    javaComponent.withVariantsFromConfiguration(configurations["shadowRuntimeElements"]) {
+        skip()
+    }
 }
 
 val CLASSPATH = listOf("truezip", "truevfs", "js")
-    .map { "$it.jar" }
-    .flatMap { listOf(it, "FastAsyncWorldEdit/$it") }
-    .joinToString(separator = " ")
+        .map { "$it.jar" }
+        .flatMap { listOf(it, "FastAsyncWorldEdit/$it") }
+        .joinToString(separator = " ")
 
 sealed class WorldEditKind(
-    val name: String,
-    val mainClass: String = "com.sk89q.worldedit.internal.util.InfoEntryPoint"
+        val name: String,
+        val mainClass: String = "com.sk89q.worldedit.internal.util.InfoEntryPoint"
 ) {
     class Standalone(mainClass: String) : WorldEditKind("STANDALONE", mainClass)
     object Mod : WorldEditKind("MOD")
@@ -168,10 +173,10 @@ fun Project.addJarManifest(kind: WorldEditKind, includeClasspath: Boolean = fals
         val version = project(":worldedit-core").version
         inputs.property("version", version)
         val attributes = mutableMapOf(
-            "Implementation-Version" to version,
-            "WorldEdit-Version" to version,
-            "WorldEdit-Kind" to kind.name,
-            "Main-Class" to kind.mainClass
+                "Implementation-Version" to version,
+                "WorldEdit-Version" to version,
+                "WorldEdit-Kind" to kind.name,
+                "Main-Class" to kind.mainClass
         )
         if (includeClasspath) {
             attributes["Class-Path"] = CLASSPATH

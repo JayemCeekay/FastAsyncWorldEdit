@@ -24,7 +24,9 @@ import com.mojang.math.Vector3d;
 import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.jnbt.Tag;
 import com.sk89q.worldedit.blocks.BaseItemStack;
+import com.sk89q.worldedit.forge.internal.ForgeTransmogrifier;
 import com.sk89q.worldedit.forge.internal.NBTConverter;
+import com.sk89q.worldedit.internal.block.BlockStateIdAccess;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.math.Vector3;
 import com.sk89q.worldedit.registry.state.DirectionalProperty;
@@ -130,7 +132,6 @@ public final class ForgeAdapter {
     public static BlockPos toBlockPos(BlockVector3 vector) {
         return new BlockPos(vector.getBlockX(), vector.getBlockY(), vector.getBlockZ());
     }
-
     public static Property<?> adaptProperty(net.minecraft.world.level.block.state.properties.Property<?> property) {
         if (property instanceof BooleanProperty) {
             return new com.sk89q.worldedit.registry.state.BooleanProperty(
@@ -145,7 +146,7 @@ public final class ForgeAdapter {
             );
         }
         if (property instanceof DirectionProperty) {
-            return new DirectionalProperty(property.getName(), ((DirectionProperty) property).getPossibleValues().stream()
+            return new DirectionalProperty(property.getName().toUpperCase(), ((DirectionProperty) property).getPossibleValues().stream()
                     .map(ForgeAdapter::adaptEnumFacing)
                     .collect(Collectors.toList()));
         }
@@ -153,15 +154,14 @@ public final class ForgeAdapter {
             // Note: do not make x.getName a method reference.
             // It will cause runtime bootstrap exceptions.
             return new com.sk89q.worldedit.registry.state.EnumProperty(
-                    property.toString(),
+                    property.getName(),
                     ((EnumProperty<?>) property).getPossibleValues().stream()
-                            .map(x -> x.name())
+                            .map(x -> x.getSerializedName())
                             .collect(Collectors.toList())
-            ).withOffset(0);
+            );
         }
         return new IPropertyAdapter<>(property);
     }
-
     public static Map<Property<?>, Object> adaptProperties(
             BlockType block,
             Map<net.minecraft.world.level.block.state.properties.Property<?>, Comparable<?>> mcProps
@@ -211,12 +211,11 @@ public final class ForgeAdapter {
     }
 
     public static net.minecraft.world.level.block.state.BlockState adapt(BlockState blockState) {
-        Block mcBlock = adapt(blockState.getBlockType());
+        Block mcBlock = ForgeRegistries.BLOCKS.getValue(new ResourceLocation(blockState.toString()));
         net.minecraft.world.level.block.state.BlockState newState = mcBlock.defaultBlockState();
         Map<Property<?>, Object> states = blockState.getStates();
         return applyProperties(mcBlock.getStateDefinition(), newState, states);
     }
-
     public static BlockState adapt(net.minecraft.world.level.block.state.BlockState blockState) {
         BlockType blockType = adapt(blockState.getBlock());
         return blockType.getState(adaptProperties(blockType, blockState.getValues()));
@@ -227,8 +226,7 @@ public final class ForgeAdapter {
     }
 
     public static BlockType adapt(Block block) {
-        System.out.println("adapting " + block.getRegistryName().getPath());
-        return BlockTypes.parse(block.getRegistryName().getPath());
+        return BlockTypes.parse(block.getRegistryName().toString());
     }
 
     public static Item adapt(ItemType itemType) {
