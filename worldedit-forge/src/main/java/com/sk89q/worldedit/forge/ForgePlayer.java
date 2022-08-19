@@ -25,7 +25,6 @@ import com.sk89q.worldedit.blocks.BaseItemStack;
 import com.sk89q.worldedit.entity.BaseEntity;
 import com.sk89q.worldedit.extension.platform.AbstractPlayerActor;
 import com.sk89q.worldedit.extent.inventory.BlockBag;
-import com.sk89q.worldedit.forge.internal.NBTConverter;
 import com.sk89q.worldedit.internal.block.BlockStateIdAccess;
 import com.sk89q.worldedit.internal.cui.CUIEvent;
 import com.sk89q.worldedit.math.BlockVector3;
@@ -41,14 +40,11 @@ import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockStateHolder;
 import com.sk89q.worldedit.world.block.BlockTypes;
-import com.sk89q.worldedit.world.entity.EntityType;
 import io.netty.buffer.Unpooled;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.TextComponent;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerAbilitiesPacket;
@@ -56,18 +52,13 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.StructureBlock;
-import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.StructureBlockEntity;
-import net.minecraftforge.network.NetworkHooks;
 
-import java.io.IOException;
+import javax.annotation.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
-
-import javax.annotation.Nullable;
 
 public class ForgePlayer extends AbstractPlayerActor {
 
@@ -164,8 +155,13 @@ public class ForgePlayer extends AbstractPlayerActor {
 
     @Override
     public void print(Component component) {
-        this.player.sendMessage(Objects.requireNonNull(MutableComponent.Serializer.fromJson(GsonComponentSerializer.INSTANCE.serialize(
-                WorldEditText.format(component, getLocale())))), player.getUUID());
+        sendMessage(net.minecraft.network.chat.Component.Serializer.fromJson(
+                GsonComponentSerializer.INSTANCE.serialize(WorldEditText.format(component, getLocale()))
+        ));
+    }
+
+    private void sendMessage(net.minecraft.network.chat.Component textComponent) {
+        this.player.sendMessage(textComponent, this.player.getUUID());
     }
 
     private void sendColorized(String msg, ChatFormatting formatting) {

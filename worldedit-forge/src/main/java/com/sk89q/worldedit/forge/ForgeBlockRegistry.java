@@ -19,8 +19,6 @@
 
 package com.sk89q.worldedit.forge;
 
-import com.sk89q.worldedit.forge.internal.ForgeTransmogrifier;
-import com.sk89q.worldedit.registry.state.Property;
 import com.sk89q.worldedit.util.formatting.text.Component;
 import com.sk89q.worldedit.util.formatting.text.TranslatableComponent;
 import com.sk89q.worldedit.world.block.BlockState;
@@ -28,8 +26,10 @@ import com.sk89q.worldedit.world.block.BlockType;
 import com.sk89q.worldedit.world.registry.BlockMaterial;
 import com.sk89q.worldedit.world.registry.BundledBlockRegistry;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.material.Material;
+import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -38,7 +38,7 @@ import java.util.TreeMap;
 
 public class ForgeBlockRegistry extends BundledBlockRegistry {
 
-    private Map<Material, ForgeBlockMaterial> materialMap = new HashMap<>();
+    private Map<net.minecraft.world.level.block.state.BlockState, ForgeBlockMaterial> materialMap = new HashMap<>();
 
     @Override
     public Component getRichName(BlockType blockType) {
@@ -51,27 +51,42 @@ public class ForgeBlockRegistry extends BundledBlockRegistry {
         if (block == null) {
             return super.getMaterial(blockType);
         }
-        return materialMap.computeIfAbsent(block.defaultBlockState().getMaterial(),
-                m -> new ForgeBlockMaterial(m, super.getMaterial(blockType)));
+        return materialMap.computeIfAbsent(block.defaultBlockState(),
+                m -> new ForgeBlockMaterial(m.getMaterial(), super.getMaterial(blockType)));
     }
 
-
     @Override
-    public Map<String, ? extends Property<?>> getProperties(BlockType blockType) {
+    public Map<String, ? extends com.sk89q.worldedit.registry.state.Property<?>> getProperties(BlockType blockType) {
         Block block = ForgeAdapter.adapt(blockType);
-        Map<String, Property<?>> map = new TreeMap<>();
-        Collection<net.minecraft.world.level.block.state.properties.Property<?>> propertyKeys = block
+        Map<String, com.sk89q.worldedit.registry.state.Property<?>> map = new TreeMap<>();
+        Collection<Property<?>> propertyKeys = block
                 .defaultBlockState()
                 .getProperties();
-        for (net.minecraft.world.level.block.state.properties.Property<?> key : propertyKeys) {
-            map.put(key.getName(), ForgeTransmogrifier.transmogToWorldEditProperty(key));
+        for (Property<?> key : propertyKeys) {
+            map.put(key.getName().toUpperCase(), ForgeAdapter.adaptProperty(key));
         }
         return map;
     }
 
+
     @Override
     public OptionalInt getInternalBlockStateId(BlockState state) {
         net.minecraft.world.level.block.state.BlockState equivalent = ForgeAdapter.adapt(state);
-        return OptionalInt.of(Block.BLOCK_STATE_REGISTRY.getId(equivalent));
+        return OptionalInt.of(Block.getId(equivalent));
     }
+
+    //FAWE start
+    @Override
+    public Collection<String> values() {
+        ArrayList<String> list = new ArrayList<>();
+        for(Block block : ForgeRegistries.BLOCKS.getValues()) {
+            list.add(block.defaultBlockState().toString().substring(6).replace(
+                    "}", ""));
+        }
+
+        return list;
+    }
+
+
+    //FAWE end
 }

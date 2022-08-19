@@ -141,7 +141,7 @@ public class BlockTypesCache {
                 String[] split = keyPair.split("=");
                 String name = split[0];
                 String value = split[1];
-                AbstractProperty btp = propertyMap.get(name);
+                AbstractProperty btp = propertyMap.get(name.toUpperCase());
                 id = btp.modify(id, btp.getValueFor(value));
             }
             return id;
@@ -225,35 +225,34 @@ public class BlockTypesCache {
             values = new BlockType[size];
 
             // Register reserved IDs. Ensure air/reserved are 0/1/2/3
-            if(!platform.getPlatformName().contains("Forge")) {
-                {
-                    for (Field field : ReservedIDs.class.getDeclaredFields()) {
-                        if (field.getType() == int.class) {
-                            int internalId = field.getInt(null);
-                            String id = "minecraft:" + field.getName().toLowerCase(Locale.ROOT);
-                            String defaultState = blockMap.remove(id);
-                            if (defaultState == null) {
-                                defaultState = id;
-                            }
-                            if (values[internalId] != null) {
-                                // Ugly way of ensuring a stacktrace is printed so we can see the culprit. Rethrow because we still
-                                // want to cancel whatever initialised the class.
-                                try {
-                                    throw new IllegalStateException(String.format(
-                                            "Invalid duplicate id for %s! Something has gone very wrong. Are " +
-                                                    "any plugins shading FAWE?!", id));
-                                } catch (IllegalStateException e) {
-                                    e.printStackTrace();
-                                    throw e;
-                                }
-                            }
-                            BlockType type = register(defaultState, internalId, stateList, tickList);
-                            // Note: Throws IndexOutOfBoundsError if nothing is registered and blocksMap is empty
-                            values[internalId] = type;
+/*
+            {
+                for (Field field : ReservedIDs.class.getDeclaredFields()) {
+                    if (field.getType() == int.class) {
+                        int internalId = field.getInt(null);
+                        String id = "minecraft:" + field.getName().toLowerCase(Locale.ROOT);
+                        String defaultState = blockMap.remove(id);
+                        if (defaultState == null) {
+                            defaultState = id;
                         }
+                        if (values[internalId] != null) {
+                            // Ugly way of ensuring a stacktrace is printed so we can see the culprit. Rethrow because we still
+                            // want to cancel whatever initialised the class.
+                            try {
+                                throw new IllegalStateException(String.format(
+                                        "Invalid duplicate id for %s! Something has gone very wrong. Are " +
+                                                "any plugins shading FAWE?!", id));
+                            } catch (IllegalStateException e) {
+                                e.printStackTrace();
+                                throw e;
+                            }
+                        }
+                        BlockType type = register(defaultState, internalId, stateList, tickList);
+                        // Note: Throws IndexOutOfBoundsError if nothing is registered and blocksMap is empty
+                        values[internalId] = type;
                     }
                 }
-            }
+            }*/
             { // Register real blocks
                 int internalId = 0;
                 for (Map.Entry<String, String> entry : blockMap.entrySet()) {
@@ -287,8 +286,10 @@ public class BlockTypesCache {
         String enumName = (typeName.startsWith("minecraft:") ? typeName.substring(10) : typeName).toUpperCase(Locale.ROOT);
         int oldsize = states.size();
         BlockType existing = new BlockType(id, internalId, states);
-        tickList.addAll(Collections.nCopies(states.size() - oldsize,
-                existing.getMaterial().isTicksRandomly() || existing.getMaterial().isLiquid()));
+        tickList.addAll(Collections.nCopies(
+                states.size() - oldsize,
+                existing.getMaterial().isTicksRandomly() || existing.getMaterial().isLiquid()
+        ));
         // register states
         BlockType.REGISTRY.register(typeName, existing);
         String nameSpace = typeName.substring(0, typeName.indexOf(':'));
@@ -320,6 +321,7 @@ public class BlockTypesCache {
      * Statically-set reserved IDs. Should be used as minimally as possible, and for IDs that will see frequent use
      */
     public static class ReservedIDs {
+
         public static final int __RESERVED__ = 0;
         public static final int AIR = 1;
         public static final int CAVE_AIR = 2;

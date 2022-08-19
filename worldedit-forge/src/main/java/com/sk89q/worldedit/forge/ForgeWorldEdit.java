@@ -48,12 +48,9 @@ import com.sk89q.worldedit.internal.util.LogManagerCompat;
 import com.sk89q.worldedit.util.Location;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BlockCategory;
-import com.sk89q.worldedit.world.block.BlockType;
 import com.sk89q.worldedit.world.entity.EntityType;
 import com.sk89q.worldedit.world.item.ItemCategory;
 import com.sk89q.worldedit.world.item.ItemType;
-import com.sk89q.worldedit.world.registry.BundledBlockData;
-import com.sk89q.worldedit.world.registry.BundledItemData;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
@@ -65,6 +62,7 @@ import net.minecraft.world.level.Level;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.CommandEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickEmpty;
@@ -90,6 +88,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -116,26 +115,24 @@ public class ForgeWorldEdit implements IFawe {
     public static ForgeWorldEdit inst;
 
     public static CommonProxy proxy = DistExecutor.runForDist(() -> ClientProxy::new, () -> ServerProxy::new);
-
+    public static MinecraftServer server;
     private ForgePlatform platform;
     private ForgeConfiguration config;
     private Path workingDir;
+    public int ticks = 0;
+
 
     private ModContainer container;
 
     public ForgeWorldEdit() {
         inst = this;
-        try{
-            Fawe.set(this);
-            Fawe.setupInjector();
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
+
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         modBus.addListener(this::init);
 
         MinecraftForge.EVENT_BUS.register(ThreadSafeCache.getInstance());
         MinecraftForge.EVENT_BUS.register(this);
+        MinecraftForge.EVENT_BUS.register(ForgeTickListener.class);
     }
 
     private void init(FMLCommonSetupEvent event) {
@@ -160,38 +157,64 @@ public class ForgeWorldEdit implements IFawe {
 
     private void setupPlatform() {
         this.platform = new ForgePlatform(this);
-
         WorldEdit.getInstance().getPlatformManager().register(platform);
+
         config = new ForgeConfiguration(this);
+        config.load();
+
+        try {
+            Fawe.set(this);
+            Fawe.setupInjector();
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
 //  TODO      if (ModList.get().isLoaded("sponge")) {
 //            this.provider = new ForgePermissionsProvider.SpongePermissionsProvider();
 //        } else {
         this.provider = new ForgePermissionsProvider.VanillaPermissionsProvider(platform);
-        WorldEdit.getInstance().getEventBus().post(new PlatformsRegisteredEvent());
-        BundledBlockData.getInstance();
-        BundledItemData.getInstance();
+
 //        }
     }
 
     private void setupRegistries(MinecraftServer server) {
-
         // Blocks
-        System.out.println("BLOCKS");
-
-        for (ResourceLocation name : net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKeys()) {
-
+        /*
+        for (ResourceLocation name : ForgeRegistries.BLOCKS.getKeys()) {
             if (BlockType.REGISTRY.get(name.toString()) == null) {
-                System.out.println("Attempting to register " + name.toString());
+                System.out.println("Registering block " + name);
                 BlockType.REGISTRY.register(name.toString(), new BlockType(
                         name.toString(),
-                        Registry.BLOCK.getId(Registry.BLOCK.get(name)),
-                        net.minecraftforge.registries.ForgeRegistries.BLOCKS.getValue(name).getStateDefinition().getPossibleStates().stream().map(
-                                ForgeAdapter::adapt).collect(Collectors.toList())));
+                        blockState ->
+                        {
+                            ParserContext context = new ParserContext();
+                            context.setPreferringWildcard(true);
+                            context.setTryLegacy(false);
+                            context.setRestricted(false);
+                            try {
+                                FuzzyBlockState state = (FuzzyBlockState) WorldEdit
+                                        .getInstance()
+                                        .getBlockFactory()
+                                        .parseFromInput(
+                                                blockState.getAsString(),
+                                                context
+                                        )
+                                        .toImmutableState();
+                                BlockState defaultState = blockState.getBlockType().getAllStates().get(0);
+                                for (Map.Entry<Property<?>, Object> propertyObjectEntry : state.getStates().entrySet()) {
+                                    @SuppressWarnings("unchecked")
+                                    Property<Object> prop = (Property<Object>) propertyObjectEntry.getKey();
+                                    defaultState = defaultState.with(prop, propertyObjectEntry.getValue());
+                                }
+                                return defaultState;
+                            } catch (InputParseException e) {
+                                LOGGER.warn("Error loading block state for " + name, e);
+                                return blockState;
+                            }
+                        }
+                ));
             }
-        }
-
+        }*/
         // Items
-        System.out.println("ITEMS");
         for (ResourceLocation name : ForgeRegistries.ITEMS.getKeys()) {
             if (ItemType.REGISTRY.get(name.toString()) == null) {
                 ItemType.REGISTRY.register(name.toString(), new ItemType(name.toString()));
@@ -252,8 +275,6 @@ public class ForgeWorldEdit implements IFawe {
         if (Files.exists(delChunks)) {
             ChunkDeleter.runFromFile(delChunks, true);
         }
-        System.out.println("SERVER ABOUT TO START");
-
     }
 
     @SubscribeEvent
@@ -265,13 +286,8 @@ public class ForgeWorldEdit implements IFawe {
 
     @SubscribeEvent
     public void serverStarted(ServerStartedEvent event) {
-        System.out.println("SERVER STARTED");
 
         setupRegistries(event.getServer());
-
-
-        config.load();
-
         WorldEdit.getInstance().getEventBus().post(new PlatformReadyEvent(platform));
     }
 
@@ -334,7 +350,6 @@ public class ForgeWorldEdit implements IFawe {
             }
         }
     }
-
     @SubscribeEvent
     public void onCommandEvent(CommandEvent event) throws CommandSyntaxException {
         ParseResults<CommandSourceStack> parseResults = event.getParseResults();
@@ -391,52 +406,6 @@ public class ForgeWorldEdit implements IFawe {
         return new ForgeWorld(world);
     }
 
-    @Override
-    public File getDirectory() {
-        return null;
-    }
-
-    @Override
-    public TaskManager getTaskManager() {
-        return null;
-    }
-
-    @Override
-    public Collection<FaweMaskManager> getMaskManagers() {
-        return null;
-    }
-
-
-    @Override
-    public String getPlatform() {
-        return this.platform.toString();
-    }
-
-    @Override
-    public UUID getUUID(final String name) {
-        return null;
-    }
-
-    @Override
-    public String getName(final UUID uuid) {
-        return null;
-    }
-
-    @Override
-    public QueueHandler getQueueHandler() {
-        return null;
-    }
-
-    @Override
-    public Preloader getPreloader(final boolean initialise) {
-        return null;
-    }
-
-    @Override
-    public FAWEPlatformAdapterImpl getPlatformAdapter() {
-        return null;
-    }
-
     /**
      * Get the working directory where WorldEdit's files are stored.
      *
@@ -461,6 +430,60 @@ public class ForgeWorldEdit implements IFawe {
 
     public ForgePermissionsProvider getPermissionsProvider() {
         return provider;
+    }
+
+    @Override
+    public File getDirectory() {
+        Path FaweDirectory = FMLPaths.CONFIGDIR.get().resolve("FastAsyncWorldEdit");
+        if (!Files.exists(FaweDirectory)) {
+            try {
+                Files.createDirectory(FaweDirectory);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return FaweDirectory.toFile();
+    }
+
+    @Override
+    public TaskManager getTaskManager() {
+        return new ForgeTaskManager(inst);
+    }
+
+    @Override
+    public Collection<FaweMaskManager> getMaskManagers() {
+        final ArrayList<FaweMaskManager> managers = new ArrayList<>();
+        return managers;
+    }
+
+    @Override
+    public String getPlatform() {
+        return platform.getPlatformName();
+    }
+
+    @Override
+    public UUID getUUID(final String name) {
+        return null;
+    }
+
+    @Override
+    public String getName(final UUID uuid) {
+        return null;
+    }
+
+    @Override
+    public QueueHandler getQueueHandler() {
+        return new ForgeQueueHandler();
+    }
+
+    @Override
+    public Preloader getPreloader(final boolean initialise) {
+        return null;
+    }
+
+    @Override
+    public FAWEPlatformAdapterImpl getPlatformAdapter() {
+        return null;
     }
 
 }
