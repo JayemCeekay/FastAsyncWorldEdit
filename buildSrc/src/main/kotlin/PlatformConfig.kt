@@ -63,14 +63,6 @@ fun Project.applyPlatformAndCoreConfiguration() {
         publications {
             register<MavenPublication>("maven") {
                 from(javaComponent)
-                versionMapping {
-                    usage("java-api") {
-                        fromResolutionOf("runtimeClasspath")
-                    }
-                    usage("java-runtime") {
-                        fromResolutionResult()
-                    }
-                }
                 group = "com.fastasyncworldedit"
                 artifactId = "${rootProject.name}-${project.description}"
                 version = version
@@ -121,18 +113,19 @@ fun Project.applyPlatformAndCoreConfiguration() {
             }
         }
     }
-/*
+    if (name !in setOf("worldedit-fabric", "worldedit-forge")) {
         configurations["compileClasspath"].apply {
-        resolutionStrategy.componentSelection {
-            withModule("org.slf4j:slf4j-api") {
-                reject("No SLF4J allowed on compile classpath")
+            resolutionStrategy.componentSelection {
+                withModule("org.slf4j:slf4j-api") {
+                    reject("No SLF4J allowed on compile classpath")
+                }
             }
         }
     }
-*/
 }
 
 fun Project.applyShadowConfiguration() {
+    apply(plugin = "com.github.johnrengelman.shadow")
     tasks.named<ShadowJar>("shadowJar") {
         archiveClassifier.set("dist")
         dependencies {

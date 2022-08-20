@@ -9,6 +9,14 @@ plugins {
     id("xyz.jpenilla.run-paper") version "1.0.6"
 }
 
+subprojects {
+    if (buildscript.sourceFile?.extension?.toLowerCase() == "kts"
+            && parent != rootProject) {
+        generateSequence(parent) { project -> project.parent.takeIf { it != rootProject } }
+                .forEach { evaluationDependsOn(it.path) }
+    }
+}
+
 logger.lifecycle("""
 *******************************************
  You are building FastAsyncWorldEdit!

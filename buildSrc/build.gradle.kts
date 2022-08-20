@@ -19,7 +19,13 @@ repositories {
             includeGroupByRegex("io\\.papermc\\..*")
         }
     }
-    maven { url = uri("https://maven.minecraftforge.net/") }
+    maven {
+        name = "Forge Maven"
+        url = uri("https://maven.minecraftforge.net/")
+        content {
+            includeGroupByRegex("net\\.minecraftforge(|\\..*)$")
+        }
+    }
     maven {
         url = uri("https://plugins.gradle.org/m2/")
     }
@@ -35,6 +41,7 @@ dependencies {
     implementation(gradleApi())
     implementation("org.ajoberstar.grgit:grgit-gradle:4.1.1")
     implementation("gradle.plugin.com.github.johnrengelman:shadow:7.1.2")
+    implementation("net.minecraftforge.gradle:ForgeGradle:5.1.50")
     implementation("io.papermc.paperweight.userdev:io.papermc.paperweight.userdev.gradle.plugin:1.3.8")
 }
 

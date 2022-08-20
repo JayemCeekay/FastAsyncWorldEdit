@@ -1,3 +1,6 @@
+import net.minecraftforge.gradle.common.util.RunConfig
+import net.minecraftforge.gradle.userdev.UserDevExtension
+import net.minecraftforge.gradle.userdev.tasks.RenameJarInPlace
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 project.description = "Forge"
@@ -16,12 +19,8 @@ buildscript {
     }
 }
 
-apply {
-    plugin("net.minecraftforge.gradle")
-}
-
-
 plugins {
+    id("net.minecraftforge.gradle")
     `java-library`
 }
 
@@ -41,6 +40,59 @@ configurations.all {
     }
 }
 
+val javaComponent = components["java"] as AdhocComponentWithVariants
+javaComponent.withVariantsFromConfiguration(configurations["apiElements"]) {
+    skip()
+}
+
+javaComponent.withVariantsFromConfiguration(configurations["runtimeElements"]) {
+    skip()
+}
+
+val reobfApiElements = configurations.register("reobfApiElements") {
+    isVisible = false
+    description = "Re-obfuscated API elements for libs"
+    isCanBeResolved = false
+    isCanBeConsumed = true
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage.JAVA_API))
+        attribute(Category.CATEGORY_ATTRIBUTE, project.objects.named(Category.LIBRARY))
+        attribute(Bundling.BUNDLING_ATTRIBUTE, project.objects.named(Bundling.EXTERNAL))
+        attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.objects.named(LibraryElements.JAR))
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 8)
+    }
+    outgoing.artifact(tasks.named("jar")) {
+        builtBy(project.provider { tasks.named("reobfJar") })
+    }
+    extendsFrom(configurations["api"])
+}
+
+javaComponent.addVariantsFromConfiguration(reobfApiElements.get()) {
+    mapToMavenScope("compile")
+}
+
+val reobfRuntimeElements = configurations.register("reobfRuntimeElements") {
+    isVisible = false
+    description = "Re-obfuscated runtime elements for libs"
+    isCanBeResolved = false
+    isCanBeConsumed = true
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage.JAVA_RUNTIME))
+        attribute(Category.CATEGORY_ATTRIBUTE, project.objects.named(Category.LIBRARY))
+        attribute(Bundling.BUNDLING_ATTRIBUTE, project.objects.named(Bundling.EXTERNAL))
+        attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.objects.named(LibraryElements.JAR))
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 8)
+    }
+    outgoing.artifact(tasks.named("jar")) {
+        builtBy(project.provider { tasks.named("reobfJar") })
+    }
+    extendsFrom(configurations["reobfApiElements"])
+    extendsFrom(configurations["runtimeClasspath"].copy { d -> d.group != "net.minecraftforge" })
+}
+
+javaComponent.addVariantsFromConfiguration(reobfRuntimeElements.get()) {
+    mapToMavenScope("runtime")
+}
 repositories {
     maven {
         name = "PaperMC"
@@ -62,7 +114,7 @@ repositories {
 
 dependencies {
     api(projects.worldeditCore)
-    api(projects.worldeditLibs.forge)
+    //"api"(projects.worldeditLibs.forge)
     implementation(libs.fastutil)
     implementation("io.papermc.paper:paper-api") {
         exclude("junit", "junit")
@@ -85,7 +137,7 @@ val apiClasspath = configurations.create("apiClasspath") {
     extendsFrom(configurations.api.get())
 }
 
-configure<net.minecraftforge.gradle.userdev.UserDevExtension> {
+configure<UserDevExtension> {
     mappings(mapOf(
             "channel" to "official",
             "version" to mappingsMinecraftVersion
@@ -94,7 +146,7 @@ configure<net.minecraftforge.gradle.userdev.UserDevExtension> {
     accessTransformer(file("src/main/resources/META-INF/accesstransformer.cfg"))
 
     runs {
-        val runConfig = Action<net.minecraftforge.gradle.common.util.RunConfig> {
+        val runConfig = Action<RunConfig> {
             properties(mapOf(
                     "forge.logging.markers" to "SCAN,REGISTRIES,REGISTRYDUMP",
                     "forge.logging.console.level" to "debug"
@@ -111,8 +163,8 @@ configure<net.minecraftforge.gradle.userdev.UserDevExtension> {
 
 }
 
-configure<BasePluginConvention> {
-    archivesBaseName = "$archivesBaseName-mc$minecraftVersion"
+configure<BasePluginExtension> {
+    archivesName.set("${project.name}-mc$minecraftVersion")
 }
 
 tasks.named<Copy>("processResources") {
@@ -129,33 +181,31 @@ tasks.named<Copy>("processResources") {
     }
 
     // replace stuff in mcmod.info, nothing else
-    from(sourceSets["main"].resources.srcDirs) {
-         include("META-INF/mods.toml")
+   // from(sourceSets["main"].resources.srcDirs) {
+       //  include("META-INF/mods.toml")
 
          // replace version and mcversion
-         expand(properties)
-     }
+    filesMatching("META-INF/mods.toml") {
+        expand(properties)
+    }
+    // }
 
     // copy everything else except the mcmod.info
 
-    from(sourceSets["main"].resources.srcDirs) {
-        exclude("META-INF/mods.toml")
-    }
+  //  from(sourceSets["main"].resources.srcDirs) {
+  //      exclude("META-INF/mods.toml")
+  //  }
 
     // copy from -core resources as well
-  // from(project(":worldedit-core").tasks.named("processResources"))
+ //  from(project(":worldedit-core").tasks.named("processResources"))
 }
 
 addJarManifest(WorldEditKind.Mod, includeClasspath = false)
 
 tasks.named<ShadowJar>("shadowJar") {
 
-    archiveFileName.set("${rootProject.name}-Forge-${project.version}.${archiveExtension.getOrElse("jar")}")
-
     dependencies {
         relocate("org.antlr.v4", "com.sk89q.worldedit.antlr4")
-        include(dependency(":worldedit-core"))
-        include(dependency(":worldedit-libs:forge"))
         include(dependency("io.papermc.paper:paper-api"))
         include(dependency("org.antlr:antlr4-runtime"))
         include(dependency("org.mozilla:rhino-runtime"))
@@ -178,7 +228,7 @@ tasks.named<ShadowJar>("shadowJar") {
     }
 }
 afterEvaluate {
-    val reobf = extensions.getByName<NamedDomainObjectContainer<net.minecraftforge.gradle.userdev.tasks.RenameJarInPlace>>("reobf")
+    val reobf = extensions.getByName<NamedDomainObjectContainer<RenameJarInPlace>>("reobf")
     reobf.maybeCreate("shadowJar").run {
         mappings.set(tasks.getByName<net.minecraftforge.gradle.mcp.tasks.GenerateSRG>("createMcpToSrg").output)
     }
