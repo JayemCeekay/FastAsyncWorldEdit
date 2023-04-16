@@ -3,7 +3,6 @@ package com.sk89q.worldedit.bukkit.adapter.impl.fawe.v1_19_R1;
 import com.fastasyncworldedit.bukkit.adapter.MapChunkUtil;
 import com.sk89q.worldedit.bukkit.adapter.Refraction;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
-
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 
 //TODO un-very-break-this

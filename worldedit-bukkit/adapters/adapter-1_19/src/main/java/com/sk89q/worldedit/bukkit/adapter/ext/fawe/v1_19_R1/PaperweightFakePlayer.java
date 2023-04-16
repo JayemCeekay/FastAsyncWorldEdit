@@ -20,7 +20,6 @@
 package com.sk89q.worldedit.bukkit.adapter.ext.fawe.v1_19_R1;
 
 import com.mojang.authlib.GameProfile;
-import net.minecraft.network.chat.ChatType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundClientInformationPacket;
 import net.minecraft.server.level.ServerLevel;

@@ -22,15 +22,15 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
-public class CharSetBlocks extends CharBlocks implements IChunkSet {
+public class DataArraySetBlocks extends DataArrayBlocks implements IChunkSet {
 
-    private static final Pool<CharSetBlocks> POOL = FaweCache.INSTANCE.registerPool(
-            CharSetBlocks.class,
-            CharSetBlocks::new,
+    private static final Pool<DataArraySetBlocks> POOL = FaweCache.INSTANCE.registerPool(
+            DataArraySetBlocks.class,
+            DataArraySetBlocks::new,
             Settings.settings().QUEUE.POOL
     );
 
-    public static CharSetBlocks newInstance() {
+    public static DataArraySetBlocks newInstance() {
         return POOL.poll();
     }
 
@@ -44,7 +44,7 @@ public class CharSetBlocks extends CharBlocks implements IChunkSet {
     private boolean fastMode = false;
     private int bitMask = -1;
 
-    private CharSetBlocks() {
+    private DataArraySetBlocks() {
         // Expand as we go
         super(0, 15);
     }
@@ -62,13 +62,7 @@ public class CharSetBlocks extends CharBlocks implements IChunkSet {
 
     @Override
     public BiomeType getBiomeType(int x, int y, int z) {
-        int layer;
-        if (biomes == null || (y >> 4) < minSectionPosition || (y >> 4) > maxSectionPosition) {
-            return null;
-        } else if (biomes[(layer = (y >> 4) - minSectionPosition)] == null) {
-            return null;
-        }
-        return biomes[layer][(y & 15) >> 2 | (z >> 2) << 2 | x >> 2];
+        return getBiomeType(x, y, z, biomes, minSectionPosition, maxSectionPosition);
     }
 
     @Override
@@ -119,7 +113,7 @@ public class CharSetBlocks extends CharBlocks implements IChunkSet {
     }
 
     @Override
-    public void setBlocks(int layer, char[] data) {
+    public void setBlocks(int layer, final DataArray data) {
         updateSectionIndexRange(layer);
         layer -= minSectionPosition;
         this.sections[layer] = data == null ? EMPTY : FULL;
@@ -330,7 +324,7 @@ public class CharSetBlocks extends CharBlocks implements IChunkSet {
     }
 
     @Override
-    public char[] load(final int layer) {
+    public DataArray load(final int layer) {
         updateSectionIndexRange(layer);
         return super.load(layer);
     }
@@ -348,67 +342,46 @@ public class CharSetBlocks extends CharBlocks implements IChunkSet {
         if (layer < minSectionPosition) {
             int diff = minSectionPosition - layer;
             sectionCount += diff;
-            char[][] tmpBlocks = new char[sectionCount][];
+            DataArray[] tmpBlocks = new DataArray[sectionCount];
             Section[] tmpSections = new Section[sectionCount];
             Object[] tmpSectionLocks = new Object[sectionCount];
-            System.arraycopy(blocks, 0, tmpBlocks, diff, blocks.length);
-            System.arraycopy(sections, 0, tmpSections, diff, sections.length);
-            System.arraycopy(sectionLocks, 0, tmpSectionLocks, diff, sections.length);
-            for (int i = 0; i < diff; i++) {
-                tmpSections[i] = EMPTY;
-                tmpSectionLocks[i] = new Object();
-            }
-            blocks = tmpBlocks;
-            sections = tmpSections;
-            sectionLocks = tmpSectionLocks;
-            minSectionPosition = layer;
-            if (biomes != null) {
-                BiomeType[][] tmpBiomes = new BiomeType[sectionCount][64];
-                System.arraycopy(biomes, 0, tmpBiomes, diff, biomes.length);
-                biomes = tmpBiomes;
-            }
-            if (light != null) {
-                char[][] tmplight = new char[sectionCount][];
-                System.arraycopy(light, 0, tmplight, diff, light.length);
-                light = tmplight;
-            }
-            if (skyLight != null) {
-                char[][] tmplight = new char[sectionCount][];
-                System.arraycopy(skyLight, 0, tmplight, diff, skyLight.length);
-                skyLight = tmplight;
-            }
+            resizeDataArrays(layer, diff, tmpBlocks, tmpSections, tmpSectionLocks);
         } else {
             int diff = layer - maxSectionPosition;
             sectionCount += diff;
-            char[][] tmpBlocks = new char[sectionCount][];
+            DataArray[] tmpBlocks = new DataArray[sectionCount];
             Section[] tmpSections = new Section[sectionCount];
             Object[] tmpSectionLocks = new Object[sectionCount];
             System.arraycopy(blocks, 0, tmpBlocks, 0, blocks.length);
-            System.arraycopy(sections, 0, tmpSections, 0, sections.length);
-            System.arraycopy(sectionLocks, 0, tmpSectionLocks, 0, sections.length);
-            for (int i = sectionCount - diff; i < sectionCount; i++) {
-                tmpSections[i] = EMPTY;
-                tmpSectionLocks[i] = new Object();
-            }
-            blocks = tmpBlocks;
-            sections = tmpSections;
-            sectionLocks = tmpSectionLocks;
-            maxSectionPosition = layer;
-            if (biomes != null) {
-                BiomeType[][] tmpBiomes = new BiomeType[sectionCount][64];
-                System.arraycopy(biomes, 0, tmpBiomes, 0, biomes.length);
-                biomes = tmpBiomes;
-            }
-            if (light != null) {
-                char[][] tmplight = new char[sectionCount][];
-                System.arraycopy(light, 0, tmplight, 0, light.length);
-                light = tmplight;
-            }
-            if (skyLight != null) {
-                char[][] tmplight = new char[sectionCount][];
-                System.arraycopy(skyLight, 0, tmplight, 0, skyLight.length);
-                skyLight = tmplight;
-            }
+        }
+    }
+
+    private void resizeDataArrays(int layer, int diff, DataArray[] tmpBlocks, Section[] tmpSections, Object[] tmpSectionLocks) {
+        System.arraycopy(blocks, 0, tmpBlocks, diff, blocks.length);
+        System.arraycopy(sections, 0, tmpSections, diff, sections.length);
+        System.arraycopy(sectionLocks, 0, tmpSectionLocks, diff, sections.length);
+        for (int i = 0; i < diff; i++) {
+            tmpSections[i] = EMPTY;
+            tmpSectionLocks[i] = new Object();
+        }
+        blocks = tmpBlocks;
+        sections = tmpSections;
+        sectionLocks = tmpSectionLocks;
+        minSectionPosition = layer;
+        if (biomes != null) {
+            BiomeType[][] tmpBiomes = new BiomeType[sectionCount][64];
+            System.arraycopy(biomes, 0, tmpBiomes, diff, biomes.length);
+            biomes = tmpBiomes;
+        }
+        if (light != null) {
+            char[][] tmplight = new char[sectionCount][];
+            System.arraycopy(light, 0, tmplight, diff, light.length);
+            light = tmplight;
+        }
+        if (skyLight != null) {
+            char[][] tmplight = new char[sectionCount][];
+            System.arraycopy(skyLight, 0, tmplight, diff, skyLight.length);
+            skyLight = tmplight;
         }
     }
 

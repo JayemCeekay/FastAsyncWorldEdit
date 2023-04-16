@@ -10,7 +10,8 @@ import com.fastasyncworldedit.core.math.BitArrayUnstretched;
 import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.IChunkSet;
 import com.fastasyncworldedit.core.queue.implementation.QueueHandler;
-import com.fastasyncworldedit.core.queue.implementation.blocks.CharGetBlocks;
+import com.fastasyncworldedit.core.queue.implementation.blocks.DataArray;
+import com.fastasyncworldedit.core.queue.implementation.blocks.DataArrayGetBlocks;
 import com.fastasyncworldedit.core.util.MathMan;
 import com.fastasyncworldedit.core.util.collection.AdaptedMap;
 import com.google.common.base.Suppliers;
@@ -79,7 +80,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class PaperweightGetBlocks extends CharGetBlocks implements BukkitGetBlocks {
+public class PaperweightGetBlocks extends DataArrayGetBlocks implements BukkitGetBlocks {
 
     private static final Logger LOGGER = LogManagerCompat.getLogger();
 
@@ -446,18 +447,13 @@ public class PaperweightGetBlocks extends CharGetBlocks implements BukkitGetBloc
                     bitMask |= 1 << layer;
 
                     // Changes may still be written to chunk SET
-                    char[] tmp = set.load(layerNo);
-                    char[] setArr = new char[4096];
-                    System.arraycopy(tmp, 0, setArr, 0, 4096);
+                    DataArray setArr = DataArray.createCopy(set.load(layerNo));
 
                     // synchronise on internal section to avoid circular locking with a continuing edit if the chunk was
                     // submitted to keep loaded internal chunks to queue target size.
                     synchronized (super.sectionLocks[layer]) {
                         if (createCopy) {
-                            char[] tmpLoad = loadPrivately(layerNo);
-                            char[] copyArr = new char[4096];
-                            System.arraycopy(tmpLoad, 0, copyArr, 0, 4096);
-                            copy.storeSection(layer, copyArr);
+                            copy.storeSection(layer, DataArray.createCopy(loadPrivately(layerNo)));
                         }
 
                         LevelChunkSection newSection;
@@ -506,7 +502,7 @@ public class PaperweightGetBlocks extends CharGetBlocks implements BukkitGetBloc
                                 } else if (existingSection != getSections(false)[layer]) {
                                     this.sections[layer] = existingSection;
                                     this.reset();
-                                } else if (!Arrays.equals(update(layer, new char[4096], true), loadPrivately(layerNo))) {
+                                } else if (!update(layer, DataArray.createEmpty(), true).equals(loadPrivately(layerNo))) {
                                     this.reset(layerNo);
                             /*} else if (lock.isModified()) {
                                 this.reset(layerNo);*/
@@ -800,7 +796,7 @@ public class PaperweightGetBlocks extends CharGetBlocks implements BukkitGetBloc
             LevelChunk nmsChunk,
             LevelChunkSection[] chunkSections,
             LevelChunkSection section,
-            char[] arr,
+            DataArray arr,
             int layer
     ) {
         try {
@@ -825,14 +821,12 @@ public class PaperweightGetBlocks extends CharGetBlocks implements BukkitGetBloc
         this.blocks[layer] = arr;
     }
 
-    private char[] loadPrivately(int layer) {
+    private DataArray loadPrivately(int layer) {
         layer -= getMinSectionPosition();
         if (super.sections[layer] != null) {
             synchronized (super.sectionLocks[layer]) {
                 if (super.sections[layer].isFull() && super.blocks[layer] != null) {
-                    char[] blocks = new char[4096];
-                    System.arraycopy(super.blocks[layer], 0, blocks, 0, 4096);
-                    return blocks;
+                    return DataArray.createCopy(super.blocks[layer]);
                 }
             }
         }
@@ -856,21 +850,14 @@ public class PaperweightGetBlocks extends CharGetBlocks implements BukkitGetBloc
      */
     @Override
     @SuppressWarnings("unchecked")
-    public char[] update(int layer, char[] data, boolean aggressive) {
+    public DataArray update(int layer, DataArray data, boolean aggressive) {
         LevelChunkSection section = getSections(aggressive)[layer];
         // Section is null, return empty array
         if (section == null) {
-            data = new char[4096];
-            Arrays.fill(data, (char) BlockTypesCache.ReservedIDs.AIR);
-            return data;
+            return DataArray.createFilled(BlockTypesCache.ReservedIDs.AIR);
         }
-        if (data != null && data.length != 4096) {
-            data = new char[4096];
-            Arrays.fill(data, (char) BlockTypesCache.ReservedIDs.AIR);
-        }
-        if (data == null || data == FaweCache.INSTANCE.EMPTY_CHAR_4096) {
-            data = new char[4096];
-            Arrays.fill(data, (char) BlockTypesCache.ReservedIDs.AIR);
+        if (data == null || data == FaweCache.INSTANCE.EMPTY_DATA) {
+            data = DataArray.createFilled(BlockTypesCache.ReservedIDs.AIR);
         }
         Semaphore lock = PaperweightPlatformAdapter.applyLock(section);
         synchronized (lock) {
@@ -893,9 +880,9 @@ public class PaperweightGetBlocks extends CharGetBlocks implements BukkitGetBloc
                 } else {
                     // The section's palette is the global block palette.
                     for (int i = 0; i < 4096; i++) {
-                        char paletteVal = data[i];
+                        char paletteVal = (char) data.getAt(i);
                         char ordinal = adapter.ibdIDToOrdinal(paletteVal);
-                        data[i] = ordinal;
+                        data.setAt(i, ordinal);
                     }
                     return data;
                 }
@@ -908,17 +895,17 @@ public class PaperweightGetBlocks extends CharGetBlocks implements BukkitGetBloc
                             paletteToOrdinal[i] = ordinal;
                         }
                         for (int i = 0; i < 4096; i++) {
-                            char paletteVal = data[i];
+                            char paletteVal = (char) data.getAt(i);
                             char val = paletteToOrdinal[paletteVal];
                             if (val == Character.MAX_VALUE) {
                                 val = ordinal(palette.valueFor(i), adapter);
                                 paletteToOrdinal[i] = val;
                             }
-                            data[i] = val;
+                            data.setAt(i, val);
                         }
                     } else {
                         char ordinal = ordinal(palette.valueFor(0), adapter);
-                        Arrays.fill(data, ordinal);
+                        data.setAll(ordinal);
                     }
                 } finally {
                     for (int i = 0; i < num_palette; i++) {
@@ -1064,5 +1051,4 @@ public class PaperweightGetBlocks extends CharGetBlocks implements BukkitGetBloc
             return true;
         }
     }
-
 }
