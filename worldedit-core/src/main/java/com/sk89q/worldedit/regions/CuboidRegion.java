@@ -22,12 +22,12 @@ package com.sk89q.worldedit.regions;
 import com.fastasyncworldedit.core.configuration.Settings;
 import com.fastasyncworldedit.core.extent.filter.block.ChunkFilterBlock;
 import com.fastasyncworldedit.core.math.BlockVectorSet;
-import com.fastasyncworldedit.core.math.MutableBlockVector2;
 import com.fastasyncworldedit.core.math.MutableBlockVector3;
 import com.fastasyncworldedit.core.queue.Filter;
 import com.fastasyncworldedit.core.queue.IChunk;
 import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.IChunkSet;
+import com.fastasyncworldedit.core.queue.implementation.blocks.DataArray;
 import com.sk89q.worldedit.math.BlockVector2;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.World;
@@ -87,6 +87,7 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
     }
 
     //FAWE start - allow region to be created without clamping Y
+
     /**
      * Construct a new instance of this cuboid using two corners of the cuboid.
      *
@@ -170,6 +171,7 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
     }
 
     //FAWE start - allow region to be created without clamping Y
+
     /**
      * Sets the cached min and max x/y/z
      */
@@ -832,7 +834,7 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
                 if (!set.hasSection(layer)) {
                     continue;
                 }
-                char[] arr = Objects.requireNonNull(set.loadIfPresent(layer)); // This shouldn't be null if above is true
+                DataArray arr = Objects.requireNonNull(set.loadIfPresent(layer)); // This shouldn't be null if above is true
                 int indexY = 0;
                 for (int y = 0; y < 16; y++, indexY += 256) { // For each y layer within a chunk section
                     int index;
@@ -840,39 +842,26 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
                         index = indexY;
                         for (int z = 0; z < lowerZ; z++) {
                             // null the z values
-                            for (int x = 0; x < 16; x++, index++) {
-                                arr[index] = BlockTypesCache.ReservedIDs.__RESERVED__;
-                            }
+                            arr.setRange(index, index =+ 16, BlockTypesCache.ReservedIDs.__RESERVED__);
                         }
                         index = indexY + upperZi;
                         for (int z = upperZ + 1; z < 16; z++) {
                             // null the z values
-                            for (int x = 0; x < 16; x++, index++) {
-                                arr[index] = BlockTypesCache.ReservedIDs.__RESERVED__;
-                            }
+                            arr.setRange(index, index =+ 16, BlockTypesCache.ReservedIDs.__RESERVED__);
                         }
                     }
                     if (trimX) {
                         index = indexY + lowerZi; // Skip blocks already removed by trimZ
                         for (int z = lowerZ; z <= upperZ; z++, index += 16) {
-                            for (int x = 0; x < lowerX; x++) {
-                                // null the x values
-                                arr[index + x] = BlockTypesCache.ReservedIDs.__RESERVED__;
-                            }
-                            for (int x = upperX + 1; x < 16; x++) {
-                                // null the x values
-                                arr[index + x] = BlockTypesCache.ReservedIDs.__RESERVED__;
-                            }
+                            // null the x values
+                            arr.setRange(index, index + lowerX, BlockTypesCache.ReservedIDs.__RESERVED__);
+                            arr.setRange(index + upperX + 1, index + 16, BlockTypesCache.ReservedIDs.__RESERVED__);
                         }
                     }
                 }
-                set.setBlocks(layer, arr);
             }
-
-            trimNBT(set, this::contains);
-            return set;
         }
-        return null;
+        return false;
     }
 
     @Override
@@ -915,8 +904,8 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
                 if (!set.hasSection(layer)) {
                     continue;
                 }
-                char[] arr = Objects.requireNonNull(set.loadIfPresent(layer)); // This shouldn't be null if above is true
-                if (!(trimX || trimZ)) {
+                DataArray arr = set.loadIfPresent(layer); // This shouldn't be null if above is true
+                if (blacklistedTrimXZ(lowerX, upperX, lowerZ, upperZ, lowerZi, trimX, trimZ, arr)) {
                     continue;
                 }
                 int indexY = 0;
@@ -926,9 +915,7 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
                         index = indexY;
                         for (int z = lowerZ; z <= upperZ; z++) {
                             // null the z values
-                            for (int x = 0; x < 16; x++, index++) {
-                                arr[index] = BlockTypesCache.ReservedIDs.__RESERVED__;
-                            }
+                            arr.setRange(index, index =+ 16, BlockTypesCache.ReservedIDs.__RESERVED__);
                         }
                     }
                     if (trimX) {
@@ -936,17 +923,14 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
                         for (int z = lowerZ; z <= upperZ; z++, index += 16) {
                             for (int x = lowerX; x <= upperX; x++) {
                                 // null the x values
-                                arr[index + x] = BlockTypesCache.ReservedIDs.__RESERVED__;
+                                arr.setRange(index, index + (upperX - lowerX), BlockTypesCache.ReservedIDs.__RESERVED__);
                             }
                         }
                     }
                 }
-                set.setBlocks(layer, arr);
             }
-            trimNBT(set, bv3 -> !this.contains(bv3));
-            return set;
         }
-        return set;
+        return false;
     }
     //FAWE end
 

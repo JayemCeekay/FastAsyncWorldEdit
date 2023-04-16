@@ -6,6 +6,7 @@ import com.fastasyncworldedit.core.queue.IBatchProcessor;
 import com.fastasyncworldedit.core.queue.IChunk;
 import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.IChunkSet;
+import com.fastasyncworldedit.core.queue.implementation.blocks.DataArray;
 import com.fastasyncworldedit.core.util.ExtentTraverser;
 import com.sk89q.worldedit.WorldEditException;
 import com.sk89q.worldedit.extension.factory.parser.DefaultBlockParser;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static com.sk89q.worldedit.world.block.BlockTypesCache.states;
 
 public class DisallowedBlocksExtent extends AbstractDelegateExtent implements IBatchProcessor {
 
@@ -53,6 +56,7 @@ public class DisallowedBlocksExtent extends AbstractDelegateExtent implements IB
             this.blockedBlocks = new HashSet<>();
             for (String block : blockedBlocks) {
                 if (block.indexOf('[') == -1 || block.indexOf(']') == -1) {
+                    blockedBlocks.add(block);
                     this.blockedBlocks.add(block);
                     continue;
                 }
@@ -131,17 +135,14 @@ public class DisallowedBlocksExtent extends AbstractDelegateExtent implements IB
             if (!set.hasSection(layer)) {
                 continue;
             }
-            char[] blocks = Objects.requireNonNull(set.loadIfPresent(layer));
+            DataArray blocks = set.load(layer);
             it:
-            for (int i = 0; i < blocks.length; i++) {
-                char block = blocks[i];
-                if (block == BlockTypesCache.ReservedIDs.__RESERVED__) {
-                    continue;
-                }
+            for (int i = 0; i < DataArray.CHUNK_SECTION_SIZE; i++) {
+                int block = blocks.getAt(i);
                 BlockState state = BlockTypesCache.states[block];
                 if (blockedBlocks != null) {
                     if (blockedBlocks.contains(state.getBlockType().getId())) {
-                        blocks[i] = BlockTypesCache.ReservedIDs.__RESERVED__;
+                        blocks.setAt(i, BlockTypesCache.ReservedIDs.__RESERVED__);
                         continue;
                     }
                 }
@@ -150,18 +151,18 @@ public class DisallowedBlocksExtent extends AbstractDelegateExtent implements IB
                 }
                 for (FuzzyBlockState fuzzy : blockedStates) {
                     if (fuzzy.equalsFuzzy(state)) {
-                        blocks[i] = BlockTypesCache.ReservedIDs.__RESERVED__;
+                        blocks.setAt(i, BlockTypesCache.ReservedIDs.__RESERVED__);
                         continue it;
                     }
                 }
                 if (remaps == null || remaps.isEmpty()) {
-                    blocks[i] = block;
+                    blocks.setAt(i, block);
                     continue;
                 }
                 for (PropertyRemap<?> remap : remaps) {
                     state = remap.apply(state);
                 }
-                blocks[i] = state.getOrdinalChar();
+                blocks.setAt(i, state.getOrdinal());
             }
         }
         return set;

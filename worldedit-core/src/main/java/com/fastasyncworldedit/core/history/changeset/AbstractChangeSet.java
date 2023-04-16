@@ -8,6 +8,7 @@ import com.fastasyncworldedit.core.queue.IBatchProcessor;
 import com.fastasyncworldedit.core.queue.IChunk;
 import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.IChunkSet;
+import com.fastasyncworldedit.core.queue.implementation.blocks.DataArray;
 import com.fastasyncworldedit.core.util.MainUtil;
 import com.fastasyncworldedit.core.util.TaskManager;
 import com.google.common.util.concurrent.Futures;
@@ -36,7 +37,6 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -131,7 +131,8 @@ public abstract class AbstractChangeSet implements ChangeSet, IBatchProcessor {
                 BlockState toBlock = set.getBlock(pos.getX() & 15, pos.getY(), pos.getZ() & 15);
                 if (fromBlock != toBlock || tilesTo.containsKey(pos)) {
                     addTileRemove(MainUtil.setPosition(entry.getValue(), entry.getKey().getX(), entry.getKey().getY(),
-                            entry.getKey().getZ()));
+                            entry.getKey().getZ()
+                    ));
                 }
             }
         }
@@ -160,17 +161,19 @@ public abstract class AbstractChangeSet implements ChangeSet, IBatchProcessor {
             if (!set.hasSection(layer)) {
                 continue;
             }
+
             // add each block and tile
-            char[] blocksGet;
-            char[] tmp = get.load(layer);
-            if (tmp == null) {
-                blocksGet = FaweCache.INSTANCE.EMPTY_CHAR_4096;
+            DataArray blocksGet;
+            DataArray tmpGet = get.load(layer);
+            if (tmpGet == null) {
+                blocksGet = FaweCache.INSTANCE.EMPTY_DATA;
             } else {
-                System.arraycopy(tmp, 0, (blocksGet = new char[4096]), 0, 4096);
+                blocksGet = DataArray.createEmpty();
+                tmpGet.copyInto(blocksGet);
             }
-            char[] blocksSet;
-            // loadIfPresent shouldn't be null if set.hasSection(layer) is true
-            System.arraycopy(Objects.requireNonNull(set.loadIfPresent(layer)), 0, (blocksSet = new char[4096]), 0, 4096);
+            DataArray blocksSet = DataArray.createEmpty();
+            DataArray tmpSet = set.load(layer);
+            tmpSet.copyInto(blocksSet);
 
             // Account for negative layers
             int by = layer << 4;
@@ -180,12 +183,12 @@ public abstract class AbstractChangeSet implements ChangeSet, IBatchProcessor {
                     int zz = z + bz;
                     for (int x = 0; x < 16; x++, index++) {
                         int xx = bx + x;
-                        int from = blocksGet[index];
+                        int from = blocksGet.getAt(index);
                         if (from == BlockTypesCache.ReservedIDs.__RESERVED__) {
                             from = BlockTypesCache.ReservedIDs.AIR;
                         }
                         final int combinedFrom = from;
-                        final int combinedTo = blocksSet[index];
+                        final int combinedTo = blocksSet.getAt(index);
                         if (combinedTo != BlockTypesCache.ReservedIDs.__RESERVED__) {
                             add(xx, yy, zz, combinedFrom, combinedTo);
                         }
@@ -203,9 +206,9 @@ public abstract class AbstractChangeSet implements ChangeSet, IBatchProcessor {
                 BiomeType[] biomeSection = biomes[layer - set.getMinSectionPosition()];
                 int index = 0;
                 int yy = layer << 4;
-                for (int y = 0; y < 16; y+= 4) {
-                    for (int z = 0; z < 16; z+= 4) {
-                        for (int x = 0; x < 16; x+= 4, index++) {
+                for (int y = 0; y < 16; y += 4) {
+                    for (int z = 0; z < 16; z += 4) {
+                        for (int x = 0; x < 16; x += 4, index++) {
                             BiomeType newBiome = biomeSection[index];
                             if (newBiome != null) {
                                 BiomeType oldBiome = get.getBiomeType(x, yy + y, z);
@@ -362,6 +365,7 @@ public abstract class AbstractChangeSet implements ChangeSet, IBatchProcessor {
                 if (completeNow) {
                     throw t;
                 } else {
+                    t.printStackTrace();
                     int hash = t.getMessage().hashCode();
                     if (lastException.getAndSet(hash) != hash) {
                         LOGGER.catching(t);
