@@ -19,10 +19,6 @@
 
 package com.sk89q.worldedit.fabric;
 
-import static com.sk89q.worldedit.fabric.FabricAdapter.adaptPlayer;
-import static net.minecraft.server.command.CommandManager.argument;
-import static net.minecraft.server.command.CommandManager.literal;
-
 import com.google.common.collect.ImmutableList;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
@@ -38,9 +34,9 @@ import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.event.platform.CommandSuggestionEvent;
 import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.internal.util.Substring;
-import net.minecraft.entity.Entity;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
 import org.enginehub.piston.inject.InjectedValueStore;
 import org.enginehub.piston.inject.Key;
 import org.enginehub.piston.inject.MapBackedValueStore;
@@ -50,30 +46,24 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 
+import static com.sk89q.worldedit.fabric.FabricAdapter.adaptPlayer;
+import static net.minecraft.commands.Commands.argument;
+import static net.minecraft.commands.Commands.literal;
+
 
 public final class CommandWrapper {
 
     private CommandWrapper() {
     }
 
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher, org.enginehub.piston.Command command) {
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, org.enginehub.piston.Command command) {
         ImmutableList.Builder<String> aliases = ImmutableList.builder();
         aliases.add(command.getName()).addAll(command.getAliases());
-
-        Command<ServerCommandSource> commandRunner =
-                ctx -> {
-                    WorldEdit.getInstance().getEventBus().post(new com.sk89q.worldedit.event.platform.CommandEvent(
-                            adaptPlayer(ctx.getSource().getPlayer()),
-                            ctx.getInput()
-                    ));
-                    return 0;
-                };
-
         for (String alias : aliases.build()) {
-            LiteralArgumentBuilder<ServerCommandSource> base = literal(alias).executes(commandRunner)
+            LiteralArgumentBuilder<CommandSourceStack> base = literal(alias).executes(FAKE_COMMAND)
                     .then(argument("args", StringArgumentType.greedyString())
                             .suggests(CommandWrapper::suggest)
-                            .executes(commandRunner));
+                            .executes(FAKE_COMMAND));
             if (command.getCondition() != org.enginehub.piston.Command.Condition.TRUE) {
                 base.requires(requirementsFor(command));
             }
@@ -81,23 +71,30 @@ public final class CommandWrapper {
         }
     }
 
-    private static Predicate<ServerCommandSource> requirementsFor(org.enginehub.piston.Command mapping) {
+    public static final Command<CommandSourceStack> FAKE_COMMAND = ctx -> {
+        if (ctx.getSource().getLevel().isClientSide) {
+            return 0;
+        }
+        return 1;
+    };
+
+    private static Predicate<CommandSourceStack> requirementsFor(org.enginehub.piston.Command mapping) {
         return ctx -> {
             final Entity entity = ctx.getEntity();
-            if (!(entity instanceof ServerPlayerEntity)) {
+            if (!(entity instanceof ServerPlayer)) {
                 return true;
             }
-            final Actor actor = FabricAdapter.adaptPlayer(((ServerPlayerEntity) entity));
+            final Actor actor = FabricAdapter.adaptPlayer(((ServerPlayer) entity));
             InjectedValueStore store = MapBackedValueStore.create();
             store.injectValue(Key.of(Actor.class), context -> Optional.of(actor));
             return mapping.getCondition().satisfied(store);
         };
     }
 
-    private static CompletableFuture<Suggestions> suggest(CommandContext<ServerCommandSource> context,
+    private static CompletableFuture<Suggestions> suggest(CommandContext<CommandSourceStack> context,
             SuggestionsBuilder builder) throws CommandSyntaxException {
         CommandSuggestionEvent event = new CommandSuggestionEvent(
-                FabricAdapter.adaptPlayer(context.getSource().getPlayer()),
+                FabricAdapter.adaptPlayer(context.getSource().getPlayerOrException()),
                 builder.getInput()
         );
         WorldEdit.getInstance().getEventBus().post(event);

@@ -19,12 +19,25 @@
 
 package com.sk89q.worldedit.fabric.internal;
 
-import net.minecraft.world.level.Level;
+import com.sk89q.worldedit.util.SideEffect;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
 
-import java.nio.file.Path;
+import javax.annotation.Nullable;
 
-public interface ExtendedMinecraftServer {
-
-    Path getStoragePath(Level world);
-
+public interface ExtendedChunk {
+    /**
+     * {@link ChunkAccess#setBlockState(BlockPos, BlockState, boolean)} with the extra
+     * {@link SideEffect#UPDATE} flag.
+     *
+     * @param pos the position to set
+     * @param state the state to set
+     * @param moved I honestly have no idea and can't be bothered to investigate, we pass {@code
+     *     false}
+     * @param update the update flag, see side-effect for details
+     * @return the old block state, or {@code null} if unchanged
+     */
+    @Nullable
+    BlockState setBlockState(BlockPos pos, BlockState state, boolean moved, boolean update);
 }

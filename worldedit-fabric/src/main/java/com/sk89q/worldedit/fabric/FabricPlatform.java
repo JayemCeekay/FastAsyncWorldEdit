@@ -19,8 +19,11 @@
 
 package com.sk89q.worldedit.fabric;
 
+import com.fastasyncworldedit.core.configuration.Settings;
+import com.fastasyncworldedit.core.extent.processor.lighting.RelighterFactory;
+import com.fastasyncworldedit.core.queue.IBatchProcessor;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.sk89q.worldedit.command.util.PermissionCondition;
 import com.sk89q.worldedit.entity.Player;
 import com.sk89q.worldedit.extension.platform.AbstractPlatform;
 import com.sk89q.worldedit.extension.platform.Actor;
@@ -28,46 +31,52 @@ import com.sk89q.worldedit.extension.platform.Capability;
 import com.sk89q.worldedit.extension.platform.MultiUserPlatform;
 import com.sk89q.worldedit.extension.platform.Preference;
 import com.sk89q.worldedit.extension.platform.Watchdog;
+import com.sk89q.worldedit.fabric.fawe.NMSRelighterFactory;
+import com.sk89q.worldedit.fabric.internal.ExtendedChunk;
 import com.sk89q.worldedit.util.SideEffect;
+import com.sk89q.worldedit.util.lifecycle.Lifecycled;
 import com.sk89q.worldedit.world.DataFixer;
 import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.registry.Registries;
 import net.minecraft.SharedConstants;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.PlayerManager;
-import net.minecraft.server.dedicated.MinecraftDedicatedServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.registry.Registry;
-import org.enginehub.piston.Command;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.dedicated.DedicatedServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.storage.ServerLevelData;
 import org.enginehub.piston.CommandManager;
+import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-
-import static java.util.stream.Collectors.toList;
+import java.util.function.Function;
+import javax.annotation.Nullable;
 
 class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
 
     private final FabricWorldEdit mod;
-    private final MinecraftServer server;
     private final FabricDataFixer dataFixer;
-    private final @Nullable Watchdog watchdog;
+    private final Lifecycled<Optional<Watchdog>> watchdog;
     private boolean hookingEvents = false;
 
-    FabricPlatform(FabricWorldEdit mod, MinecraftServer server) {
+    FabricPlatform(FabricWorldEdit mod) {
         this.mod = mod;
-        this.server = server;
         this.dataFixer = new FabricDataFixer(getDataVersion());
-        this.watchdog = server instanceof MinecraftDedicatedServer
-            ? (Watchdog) server : null;
+
+        this.watchdog = FabricWorldEdit.LIFECYCLED_SERVER.map(
+            server -> server instanceof DedicatedServer
+                ? Optional.of((Watchdog) server)
+                : Optional.empty()
+        );
     }
 
     boolean isHookingEvents() {
@@ -81,7 +90,7 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
 
     @Override
     public int getDataVersion() {
-        return SharedConstants.getGameVersion().getWorldVersion();
+        return SharedConstants.getCurrentVersion().getDataVersion().getVersion();
     }
 
     @Override
@@ -91,12 +100,14 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
 
     @Override
     public boolean isValidMobType(String type) {
-        return Registry.ENTITY_TYPE.containsId(new Identifier(type));
+        return Registry.ENTITY_TYPE.containsKey(new ResourceLocation(type));
     }
 
     @Override
     public void reload() {
         getConfiguration().load();
+        /*TODO*/
+        //super.reload();
     }
 
     @Override
@@ -107,14 +118,14 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
     @Override
     @Nullable
     public Watchdog getWatchdog() {
-        return watchdog;
+        return watchdog.value().flatMap(Function.identity()).orElse(null);
     }
 
     @Override
     public List<? extends World> getWorlds() {
-        Iterable<ServerWorld> worlds = server.getWorlds();
+        Iterable<ServerLevel> worlds = FabricWorldEdit.server.getAllLevels();
         List<World> ret = new ArrayList<>();
-        for (ServerWorld world : worlds) {
+        for (ServerLevel world : worlds) {
             ret.add(new FabricWorld(world));
         }
         return ret;
@@ -126,7 +137,8 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
         if (player instanceof FabricPlayer) {
             return player;
         } else {
-            ServerPlayerEntity entity = server.getPlayerManager().getPlayer(player.getName());
+            ServerPlayer entity = FabricWorldEdit.server
+                .getPlayerList().getPlayerByName(player.getName());
             return entity != null ? new FabricPlayer(entity) : null;
         }
     }
@@ -137,8 +149,8 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
         if (world instanceof FabricWorld) {
             return world;
         } else {
-            for (ServerWorld ws : server.getWorlds()) {
-                if (ws.getLevelProperties().getLevelName().equals(world.getName())) {
+            for (ServerLevel ws : FabricWorldEdit.server.getAllLevels()) {
+                if (((ServerLevelData) ws.getLevelData()).getLevelName().equals(world.getName())) {
                     return new FabricWorld(ws);
                 }
             }
@@ -149,24 +161,12 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
 
     @Override
     public void registerCommands(CommandManager manager) {
-        if (server == null) return;
-        net.minecraft.server.command.CommandManager mcMan = server.getCommandManager();
-
-        for (Command command : manager.getAllCommands().collect(toList())) {
-            CommandWrapper.register(mcMan.getDispatcher(), command);
-            Set<String> perms = command.getCondition().as(PermissionCondition.class)
-                .map(PermissionCondition::getPermissions)
-                .orElseGet(Collections::emptySet);
-            if (!perms.isEmpty()) {
-                perms.forEach(FabricWorldEdit.inst.getPermissionsProvider()::registerPermission);
-            }
-        }
+        // No-op, we register using Fabric's event
     }
 
     @Override
-    public void registerGameHooks() {
-        // We registered the events already anyway, so we just 'turn them on'
-        hookingEvents = true;
+    public void setGameHooksEnabled(boolean enabled) {
+        this.hookingEvents = enabled;
     }
 
     @Override
@@ -189,13 +189,6 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
         return mod.getInternalVersion();
     }
 
-    //FAWE start
-    @Override
-    public String getId() {
-        return "intellectualsites:fabric";
-    }
-    //FAWE end
-
     @Override
     public Map<Capability, Preference> getCapabilities() {
         Map<Capability, Preference> capabilities = new EnumMap<>(Capability.class);
@@ -208,27 +201,73 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
         return capabilities;
     }
 
+    private static final Set<SideEffect> SUPPORTED_SIDE_EFFECTS_NO_MIXIN = Sets.immutableEnumSet(
+        SideEffect.VALIDATION,
+        SideEffect.ENTITY_AI,
+        SideEffect.LIGHTING,
+        SideEffect.NEIGHBORS
+    );
+
     private static final Set<SideEffect> SUPPORTED_SIDE_EFFECTS = Sets.immutableEnumSet(
-            SideEffect.VALIDATION,
-            SideEffect.ENTITY_AI,
-            SideEffect.LIGHTING,
-            SideEffect.NEIGHBORS
+        Iterables.concat(SUPPORTED_SIDE_EFFECTS_NO_MIXIN, Collections.singleton(SideEffect.UPDATE))
     );
 
     @Override
     public Set<SideEffect> getSupportedSideEffects() {
-        return SUPPORTED_SIDE_EFFECTS;
+        return ExtendedChunk.class.isAssignableFrom(LevelChunk.class)
+            ? SUPPORTED_SIDE_EFFECTS
+            : SUPPORTED_SIDE_EFFECTS_NO_MIXIN;
+    }
+
+    @NotNull
+    @Override
+    public RelighterFactory getRelighterFactory() {
+        /*TODO*/
+
+        return new NMSRelighterFactory();
+    }
+
+    @Override
+    public int versionMinY() {
+
+        return -64;
+    }
+
+    @Override
+    public int versionMaxY() {
+        /*TODO*/
+        return 320;
     }
 
     @Override
     public Collection<Actor> getConnectedUsers() {
         List<Actor> users = new ArrayList<>();
-        PlayerManager scm = server.getPlayerManager();
-        for (ServerPlayerEntity entity : scm.getPlayerList()) {
+        PlayerList scm = FabricWorldEdit.server.getPlayerList();
+        for (ServerPlayer entity : scm.getPlayers()) {
             if (entity != null) {
                 users.add(new FabricPlayer(entity));
             }
         }
         return users;
     }
+    @org.jetbrains.annotations.Nullable
+    @Override
+    public IBatchProcessor getPlatformProcessor(final boolean fastMode) {
+        return super.getPlatformProcessor(fastMode);
+    }
+
+    @org.jetbrains.annotations.Nullable
+    @Override
+    public IBatchProcessor getPlatformPostProcessor(final boolean fastMode) {
+        boolean tickFluid = Settings.settings().EXPERIMENTAL.ALLOW_TICK_FLUIDS;
+        if (!tickFluid) {
+            return null;
+        }
+        if (Settings.settings().QUEUE.NO_TICK_FASTMODE && fastMode) {
+            return null;
+        }
+        return FabricWorldEdit.inst.getFaweAdapter().getTickingPostProcessor();
+    }
+
 }
+

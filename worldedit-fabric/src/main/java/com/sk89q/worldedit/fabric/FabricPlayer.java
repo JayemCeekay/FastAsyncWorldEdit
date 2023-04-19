@@ -19,15 +19,18 @@
 
 package com.sk89q.worldedit.fabric;
 
+import com.fastasyncworldedit.core.configuration.Caption;
 import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.util.StringUtil;
 import com.sk89q.worldedit.blocks.BaseItemStack;
 import com.sk89q.worldedit.entity.BaseEntity;
 import com.sk89q.worldedit.extension.platform.AbstractPlayerActor;
 import com.sk89q.worldedit.extent.inventory.BlockBag;
+import com.sk89q.worldedit.fabric.internal.ExtendedPlayerEntity;
 import com.sk89q.worldedit.fabric.internal.NBTConverter;
-import com.sk89q.worldedit.fabric.mixin.AccessorServerPlayerEntity;
+import com.sk89q.worldedit.fabric.mixin.AccessorClientboundBlockEntityDataPacket;
 import com.sk89q.worldedit.fabric.net.handler.WECUIPacketHandler;
+import com.sk89q.worldedit.internal.block.BlockStateIdAccess;
 import com.sk89q.worldedit.internal.cui.CUIEvent;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.math.Vector3;
@@ -35,7 +38,9 @@ import com.sk89q.worldedit.session.SessionKey;
 import com.sk89q.worldedit.util.HandSide;
 import com.sk89q.worldedit.util.Location;
 import com.sk89q.worldedit.util.formatting.WorldEditText;
+import com.sk89q.worldedit.util.formatting.component.TextUtils;
 import com.sk89q.worldedit.util.formatting.text.Component;
+import com.sk89q.worldedit.util.formatting.text.TranslatableComponent;
 import com.sk89q.worldedit.util.formatting.text.serializer.gson.GsonComponentSerializer;
 import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.block.BaseBlock;
@@ -43,50 +48,49 @@ import com.sk89q.worldedit.world.block.BlockStateHolder;
 import com.sk89q.worldedit.world.block.BlockTypes;
 import io.netty.buffer.Unpooled;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.block.Block;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.LiteralText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.PacketByteBuf;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.StructureBlockEntity;
 
-import javax.annotation.Nullable;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 public class FabricPlayer extends AbstractPlayerActor {
 
-    // see ClientPlayNetHandler: search for "invalid update packet", lots of hardcoded consts
-    private static final int STRUCTURE_BLOCK_PACKET_ID = 7;
-    private final ServerPlayerEntity player;
+    private final ServerPlayer player;
 
-    protected FabricPlayer(ServerPlayerEntity player) {
+    protected FabricPlayer(ServerPlayer player) {
         this.player = player;
         ThreadSafeCache.getInstance().getOnlineIds().add(getUniqueId());
     }
 
     @Override
     public UUID getUniqueId() {
-        return player.getUuid();
+        return player.getUUID();
     }
 
     @Override
     public BaseItemStack getItemInHand(HandSide handSide) {
-        ItemStack is = this.player.getStackInHand(handSide == HandSide.MAIN_HAND ? Hand.MAIN_HAND : Hand.OFF_HAND);
+        ItemStack is = this.player.getItemInHand(handSide == HandSide.MAIN_HAND ? InteractionHand.MAIN_HAND : InteractionHand.OFF_HAND);
         return FabricAdapter.adapt(is);
     }
 
     @Override
     public String getName() {
-        return this.player.getName().asFormattedString();
+        return this.player.getName().getString();
     }
 
     @Override
@@ -96,28 +100,36 @@ public class FabricPlayer extends AbstractPlayerActor {
 
     @Override
     public Location getLocation() {
-        Vector3 position = Vector3.at(this.player.x, this.player.y, this.player.z);
+        Vector3 position = Vector3.at(this.player.getX(), this.player.getY(), this.player.getZ());
         return new Location(
-                FabricWorldEdit.inst.getWorld(this.player.world),
+                FabricWorldEdit.inst.getWorld(this.player.getLevel()),
                 position,
-                this.player.yaw,
-                this.player.pitch);
+                this.player.getYRot(),
+                this.player.getXRot());
     }
 
     @Override
     public boolean setLocation(Location location) {
-        // TODO
-        return false;
+        ServerLevel level = (ServerLevel) FabricAdapter.adapt((World) location.getExtent());
+        this.player.teleportTo(
+            level,
+            location.getX(), location.getY(), location.getZ(),
+            location.getYaw(), location.getPitch()
+        );
+        // This check doesn't really ever get to be false in Fabric
+        // Since Fabric API doesn't allow cancelling the teleport.
+        // However, other mods could theoretically mix this in, so allow the detection.
+        return this.player.getLevel() == level;
     }
 
     @Override
     public World getWorld() {
-        return FabricWorldEdit.inst.getWorld(this.player.world);
+        return FabricWorldEdit.inst.getWorld(this.player.getLevel());
     }
 
     @Override
     public void giveItem(BaseItemStack itemStack) {
-        this.player.inventory.insertStack(FabricAdapter.adapt(itemStack));
+        this.player.getInventory().add(FabricAdapter.adapt(itemStack));
     }
 
     @Override
@@ -130,53 +142,60 @@ public class FabricPlayer extends AbstractPlayerActor {
         ServerPlayNetworking.send(
                 this.player,
                 WECUIPacketHandler.CUI_IDENTIFIER,
-                new PacketByteBuf(Unpooled.copiedBuffer(send, StandardCharsets.UTF_8))
+                new FriendlyByteBuf(Unpooled.copiedBuffer(send, StandardCharsets.UTF_8))
         );
     }
 
     @Override
     public Locale getLocale() {
-        return Locale.forLanguageTag(((AccessorServerPlayerEntity) this.player).getClientLanguage().replace("_", "-"));
+        return TextUtils.getLocaleByMinecraftTag(((ExtendedPlayerEntity) this.player).getLanguage());
     }
 
     @Override
+    @Deprecated
     public void printRaw(String msg) {
         for (String part : msg.split("\n")) {
-            this.player.sendMessage(new LiteralText(part));
+            this.player.sendSystemMessage(
+                net.minecraft.network.chat.Component.literal(part)
+            );
         }
     }
 
     @Override
+    @Deprecated
     public void printDebug(String msg) {
-        sendColorized(msg, Formatting.GRAY);
+        sendColorized(msg, ChatFormatting.GRAY);
     }
 
     @Override
+    @Deprecated
     public void print(String msg) {
-        sendColorized(msg, Formatting.LIGHT_PURPLE);
+        sendColorized(msg, ChatFormatting.LIGHT_PURPLE);
     }
 
     @Override
+    @Deprecated
     public void printError(String msg) {
-        sendColorized(msg, Formatting.RED);
+        sendColorized(msg, ChatFormatting.RED);
     }
 
     @Override
     public void print(Component component) {
-        this.player.sendMessage(Text.Serializer.fromJson(GsonComponentSerializer.INSTANCE.serialize(WorldEditText.format(component, getLocale()))));
+        component = Caption.color(TranslatableComponent.of("prefix", component), getLocale());
+        this.player.sendSystemMessage(net.minecraft.network.chat.Component.Serializer.fromJson(GsonComponentSerializer.INSTANCE.serialize(WorldEditText.format(component, getLocale()))));
     }
 
-    private void sendColorized(String msg, Formatting formatting) {
+    private void sendColorized(String msg, ChatFormatting formatting) {
         for (String part : msg.split("\n")) {
-            LiteralText component = new LiteralText(part);
-            component.getStyle().setColor(formatting);
-            this.player.sendMessage(component);
+            MutableComponent component = net.minecraft.network.chat.Component.literal(part)
+                .withStyle(style -> style.withColor(formatting));
+            this.player.sendSystemMessage(component);
         }
     }
 
     @Override
     public boolean trySetPosition(Vector3 pos, float pitch, float yaw) {
-        this.player.networkHandler.requestTeleport(pos.getX(), pos.getY(), pos.getZ(), yaw, pitch);
+        this.player.connection.teleport(pos.getX(), pos.getY(), pos.getZ(), yaw, pitch);
         return true;
     }
 
@@ -195,6 +214,11 @@ public class FabricPlayer extends AbstractPlayerActor {
         return FabricWorldEdit.inst.getPermissionsProvider().hasPermission(player, perm);
     }
 
+    @Override
+    public void setPermission(final String permission, final boolean value) {
+        /*TODO*/
+    }
+
     @Nullable
     @Override
     public <T> T getFacet(Class<? extends T> cls) {
@@ -203,14 +227,14 @@ public class FabricPlayer extends AbstractPlayerActor {
 
     @Override
     public boolean isAllowedToFly() {
-        return player.abilities.allowFlying;
+        return player.getAbilities().mayfly;
     }
 
     @Override
     public void setFlying(boolean flying) {
-        if (player.abilities.flying != flying) {
-            player.abilities.flying = flying;
-            player.sendAbilitiesUpdate();
+        if (player.getAbilities().flying != flying) {
+            player.getAbilities().flying = flying;
+            player.onUpdateAbilities();
         }
     }
 
@@ -222,31 +246,41 @@ public class FabricPlayer extends AbstractPlayerActor {
         }
         BlockPos loc = FabricAdapter.toBlockPos(pos);
         if (block == null) {
-            final BlockUpdateS2CPacket packetOut = new BlockUpdateS2CPacket(((FabricWorld) world).getWorld(), loc);
-            player.networkHandler.sendPacket(packetOut);
+            final ClientboundBlockUpdatePacket packetOut = new ClientboundBlockUpdatePacket(((FabricWorld) world).getWorld(), loc);
+            player.connection.send(packetOut);
         } else {
-            final BlockUpdateS2CPacket packetOut = new BlockUpdateS2CPacket();
-            PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
+
+            FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
             buf.writeBlockPos(loc);
-            buf.writeVarInt(Block.getRawIdFromState(FabricAdapter.adapt(block.toImmutableState())));
-            try {
-                packetOut.read(buf);
-            } catch (IOException e) {
-                return;
-            }
-            player.networkHandler.sendPacket(packetOut);
+            buf.writeVarInt(BlockStateIdAccess.getBlockStateId(block.toImmutableState()));
+            final ClientboundBlockUpdatePacket packetOut = new ClientboundBlockUpdatePacket(buf);
+            player.connection.send(packetOut);
             if (block instanceof BaseBlock && block.getBlockType().equals(BlockTypes.STRUCTURE_BLOCK)) {
                 final BaseBlock baseBlock = (BaseBlock) block;
                 final CompoundTag nbtData = baseBlock.getNbtData();
                 if (nbtData != null) {
-                    player.networkHandler.sendPacket(new BlockEntityUpdateS2CPacket(
-                            new BlockPos(pos.getBlockX(), pos.getBlockY(), pos.getBlockZ()),
-                            STRUCTURE_BLOCK_PACKET_ID,
-                            NBTConverter.toNative(nbtData))
+
+                    player.connection.send(Objects.requireNonNull(new StructureBlockEntity(
+                            loc,
+                            FabricAdapter.adapt(((BaseBlock) block).toBlockState())
+                    ).getUpdatePacket()));
+
+                    player.connection.send(ClientboundBlockEntityDataPacket.create(
+                                    new StructureBlockEntity(
+                                            new BlockPos(pos.getBlockX(), pos.getBlockY(), pos.getBlockZ()),
+                                            Blocks.STRUCTURE_BLOCK.defaultBlockState()
+                                    ),
+                                    __ -> (net.minecraft.nbt.CompoundTag) NBTConverter.toNative(nbtData)
+                            )
                     );
                 }
             }
         }
+    }
+
+    @Override
+    public void sendTitle(final Component title, final Component sub) {
+        /*TODO*/
     }
 
     @Override
@@ -260,8 +294,8 @@ public class FabricPlayer extends AbstractPlayerActor {
         private final UUID uuid;
         private final String name;
 
-        SessionKeyImpl(ServerPlayerEntity player) {
-            this.uuid = player.getUuid();
+        SessionKeyImpl(ServerPlayer player) {
+            this.uuid = player.getUUID();
             this.name = player.getName().getString();
         }
 

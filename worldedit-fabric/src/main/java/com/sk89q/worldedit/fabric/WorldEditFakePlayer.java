@@ -20,23 +20,19 @@
 package com.sk89q.worldedit.fabric;
 
 import com.mojang.authlib.GameProfile;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.network.ServerPlayerInteractionManager;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.stat.Stat;
-import net.minecraft.text.Text;
-import net.minecraft.world.dimension.DimensionType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.stats.Stat;
+import net.minecraft.world.damagesource.DamageSource;
 
-import javax.annotation.Nullable;
 import java.util.UUID;
 
-public class WorldEditFakePlayer extends ServerPlayerEntity {
+public class WorldEditFakePlayer extends ServerPlayer {
     private static final GameProfile FAKE_WORLDEDIT_PROFILE = new GameProfile(UUID.nameUUIDFromBytes("worldedit".getBytes()), "[WorldEdit]");
 
-    public WorldEditFakePlayer(ServerWorld world) {
-        super(world.getServer(), world, FAKE_WORLDEDIT_PROFILE, new ServerPlayerInteractionManager(world));
+    public WorldEditFakePlayer(ServerLevel world) {
+        super(world.getServer(), world, FAKE_WORLDEDIT_PROFILE, null);
     }
 
     @Override
@@ -44,25 +40,16 @@ public class WorldEditFakePlayer extends ServerPlayerEntity {
     }
 
     @Override
-    public void increaseStat(Stat<?> stat, int incrementer) {
+    public void awardStat(Stat<?> stat, int incrementer) {
     }
 
     @Override
-    public void incrementStat(Stat<?> stat) {
+    public void awardStat(Stat<?> stat) {
     }
 
     @Override
-    public void sendMessage(Text component) {
-    }
-
-    @Override
-    public void addChatMessage(Text component, boolean opt) {
-    }
-
-    @Nullable
-    @Override
-    public Entity changeDimension(DimensionType dimensionType) {
-        return this;
+    public void displayClientMessage(Component message, boolean actionBar) {
+        super.displayClientMessage(message, actionBar);
     }
 
     @Override

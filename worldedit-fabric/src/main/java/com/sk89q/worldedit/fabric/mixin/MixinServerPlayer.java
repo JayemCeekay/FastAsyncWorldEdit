@@ -19,35 +19,28 @@
 
 package com.sk89q.worldedit.fabric.mixin;
 
-import com.sk89q.worldedit.extension.platform.Watchdog;
-import com.sk89q.worldedit.fabric.internal.ExtendedMinecraftServer;
-import net.minecraft.Util;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.storage.LevelStorageSource;
-import org.spongepowered.asm.mixin.Final;
+import com.sk89q.worldedit.fabric.internal.ExtendedPlayerEntity;
+import net.minecraft.network.protocol.game.ServerboundClientInformationPacket;
+import net.minecraft.server.level.ServerPlayer;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.nio.file.Path;
+@Mixin(ServerPlayer.class)
+public abstract class MixinServerPlayer implements ExtendedPlayerEntity {
 
-@Mixin(MinecraftServer.class)
-public abstract class MixinMinecraftServer implements Watchdog, ExtendedMinecraftServer {
+    private String language = "en_us";
 
-    @Shadow
-    private long nextTickTime;
-    @Final
-    @Shadow
-    protected LevelStorageSource.LevelStorageAccess storageSource;
-
-    @Override
-    public void tick() {
-        nextTickTime = Util.getMillis();
+    @Inject(method = "updateOptions", at = @At(value = "HEAD"))
+    public void updateOptions(ServerboundClientInformationPacket clientSettingsC2SPacket,
+                              CallbackInfo callbackInfo) {
+        this.language = clientSettingsC2SPacket.language();
     }
 
     @Override
-    public Path getStoragePath(Level world) {
-        return storageSource.getDimensionPath(world.dimension());
+    public String getLanguage() {
+        return language;
     }
 
 }

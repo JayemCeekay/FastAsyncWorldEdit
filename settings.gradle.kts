@@ -6,7 +6,7 @@ listOf("legacy", "1_17_1", "1_18_2", "1_19", "1_19_3","1_19_4").forEach {
     include("worldedit-bukkit:adapters:adapter-$it")
 }
 
-listOf("bukkit", "core", "cli").forEach {
+listOf("bukkit", "core", "cli", "fabric").forEach {
     include("worldedit-libs:$it")
     include("worldedit-$it")
 }

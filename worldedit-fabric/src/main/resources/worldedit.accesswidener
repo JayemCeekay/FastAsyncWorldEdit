@@ -1,0 +1,24 @@
+accessWidener v1 named
+accessible class net/minecraft/server/level/ServerChunkCache$MainThreadExecutor
+accessible field net/minecraft/world/level/chunk/LevelChunk loaded Z
+accessible field net/minecraft/world/level/chunk/PalettedContainer registry Lnet/minecraft/core/IdMap;
+accessible field net/minecraft/world/level/chunk/ChunkAccess blockEntities Ljava/util/Map;
+accessible field net/minecraft/world/level/chunk/ChunkAccess heightmaps Ljava/util/Map;
+accessible field net/minecraft/network/protocol/game/ClientboundLevelChunkWithLightPacket x I
+accessible field net/minecraft/network/protocol/game/ClientboundLevelChunkWithLightPacket z I
+accessible field net/minecraft/world/level/chunk/PalettedContainer data Lnet/minecraft/world/level/chunk/PalettedContainer$Data;
+accessible method net/minecraft/world/level/chunk/LevelChunk removeGameEventListener (Lnet/minecraft/world/level/block/entity/BlockEntity;Lnet/minecraft/server/level/ServerLevel;)V
+accessible method net/minecraft/world/level/chunk/LevelChunk removeBlockEntityTicker (Lnet/minecraft/core/BlockPos;)V
+accessible class net/minecraft/world/level/chunk/PalettedContainer$Data
+accessible field net/minecraft/world/level/chunk/PalettedContainer$Data storage Lnet/minecraft/util/BitStorage;
+accessible field net/minecraft/world/level/chunk/PalettedContainer$Data palette Lnet/minecraft/world/level/chunk/Palette;
+accessible field net/minecraft/world/level/chunk/LevelChunkSection tickingBlockCount S
+accessible field net/minecraft/world/level/chunk/LevelChunkSection tickingFluidCount S
+accessible field net/minecraft/world/level/chunk/LevelChunkSection nonEmptyBlockCount S
+accessible method net/minecraft/server/level/ChunkMap getVisibleChunkIfPresent (J)Lnet/minecraft/server/level/ChunkHolder;
+accessible field net/minecraft/world/level/chunk/PalettedContainer threadingDetector Lnet/minecraft/util/ThreadingDetector;
+accessible method net/minecraft/world/level/chunk/PalettedContainer$Data <init> (Lnet/minecraft/world/level/chunk/PalettedContainer$Configuration;Lnet/minecraft/util/BitStorage;Lnet/minecraft/world/level/chunk/Palette;)V
+accessible class net/minecraft/world/level/chunk/PalettedContainer$Configuration
+accessible field net/minecraft/util/ThreadingDetector lock Ljava/util/concurrent/Semaphore;
+mutable field net/minecraft/util/ThreadingDetector lock Ljava/util/concurrent/Semaphore;
+accessible field net/minecraft/world/level/block/entity/BlockEntity remove Z

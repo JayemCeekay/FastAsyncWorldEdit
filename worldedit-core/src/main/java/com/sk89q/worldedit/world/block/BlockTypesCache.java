@@ -215,9 +215,16 @@ public class BlockTypesCache {
             Registries registries = platform.getRegistries();
             BlockRegistry blockReg = registries.getBlockRegistry();
             Collection<String> blocks = blockReg.values();
-            Map<String, String> blockMap = blocks.stream().collect(Collectors.toMap(item -> item.charAt(item.length() - 1) == ']'
-                    ? item.substring(0, item.indexOf('['))
-                    : item, item -> item));
+            LinkedHashMap<String, String> blockMap = blocks.stream().collect(
+                    Collectors.toMap(
+                            item -> item.charAt(item.length() - 1) == ']'
+                                    ? item.substring(0, item.indexOf('['))
+                                    : item,
+                            item -> item,
+                            (o, o2) -> o,
+                            LinkedHashMap::new
+                    )
+            );
 
             int size = blockMap.size() + 1;
             BIT_OFFSET = MathMan.log2nlz(size);
@@ -257,11 +264,24 @@ public class BlockTypesCache {
                 int internalId = 0;
                 for (Map.Entry<String, String> entry : blockMap.entrySet()) {
                     String defaultState = entry.getValue();
-                    // Skip already registered ids
-                    for (; values[internalId] != null; internalId++) {
+                    if (defaultState.startsWith("minecraft:")) {
+                        // Skip already registered ids
+                        for (; values[internalId] != null; internalId++) {
+                        }
+                        BlockType type = register(defaultState, internalId, stateList, tickList);
+                        values[internalId] = type;
                     }
-                    BlockType type = register(defaultState, internalId, stateList, tickList);
-                    values[internalId] = type;
+                }
+                //register modded blocks
+                for (Map.Entry<String, String> entry : blockMap.entrySet()) {
+                    String defaultState = entry.getValue();
+                    if (!defaultState.startsWith("minecraft:")) {
+                        // Skip already registered ids
+                        for (; values[internalId] != null; internalId++) {
+                        }
+                        BlockType type = register(defaultState, internalId, stateList, tickList);
+                        values[internalId] = type;
+                    }
                 }
             }
             for (int i = 0; i < values.length; i++) {

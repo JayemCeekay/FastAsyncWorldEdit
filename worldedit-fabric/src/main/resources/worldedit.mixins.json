@@ -1,11 +1,15 @@
 {
     "required": true,
+    "minVersion": "0.8",
     "package": "com.sk89q.worldedit.fabric.mixin",
-    "compatibilityLevel": "JAVA_8",
+    "compatibilityLevel": "JAVA_17",
     "mixins": [
-        "MixinServerPlayerEntity",
+        "AccessorClientboundBlockEntityDataPacket",
+        "AccessorPrimaryLevelData",
+        "AccessorDerivedLevelData",
+        "AccessorServerChunkCache",
         "MixinMinecraftServer",
-        "AccessorServerPlayerEntity"
+        "MixinServerPlayer"
     ],
     "server": [
     ],

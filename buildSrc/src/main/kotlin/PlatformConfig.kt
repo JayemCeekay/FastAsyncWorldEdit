@@ -24,7 +24,8 @@ fun Project.applyPlatformAndCoreConfiguration() {
     apply(plugin = "signing")
 
     applyCommonJavaConfiguration(
-            sourcesJar = name in setOf("worldedit-core", "worldedit-bukkit"),
+        banSlf4j = name !in setOf("worldedit-forge", "worldedit-fabric"),
+        sourcesJar = name in setOf("worldedit-core", "worldedit-bukkit"),
     )
 
     if (project.hasProperty("buildnumber")) {
@@ -106,7 +107,7 @@ fun Project.applyPlatformAndCoreConfiguration() {
                         developerConnection.set("scm:git://github.com/IntellectualSites/FastAsyncWorldEdit.git")
                     }
 
-                    issueManagement{
+                    issueManagement {
                         system.set("GitHub")
                         url.set("https://github.com/IntellectualSites/FastAsyncWorldEdit/issues")
                     }
@@ -157,7 +158,11 @@ sealed class WorldEditKind(
     object Plugin : WorldEditKind("PLUGIN")
 }
 
-fun Project.addJarManifest(kind: WorldEditKind, includeClasspath: Boolean = false, extraAttributes: Map<String, String> = mapOf()) {
+fun Project.addJarManifest(
+    kind: WorldEditKind,
+    includeClasspath: Boolean = false,
+    extraAttributes: Map<String, String> = mapOf()
+) {
     tasks.named<Jar>("jar") {
         val version = project(":worldedit-core").version
         inputs.property("version", version)

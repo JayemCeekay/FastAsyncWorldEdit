@@ -23,6 +23,10 @@ fun Project.applyCommonConfiguration() {
             name = "Athion"
             url = uri("https://ci.athion.net/plugin/repository/tools/")
         }
+        maven {
+            name = "Fabric"
+            url = uri("https://maven.fabricmc.net/")
+        }
     }
 
     configurations.all {

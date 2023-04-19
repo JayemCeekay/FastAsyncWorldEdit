@@ -17,14 +17,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.sk89q.worldedit.fabric.internal;
+package com.sk89q.worldedit.fabric.mixin;
 
-import net.minecraft.world.level.Level;
+import net.minecraft.world.level.levelgen.WorldGenSettings;
+import net.minecraft.world.level.storage.PrimaryLevelData;
+import net.minecraft.world.level.storage.WorldData;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
+import org.spongepowered.asm.mixin.gen.Accessor;
 
-import java.nio.file.Path;
+@Mixin(PrimaryLevelData.class)
+public interface AccessorPrimaryLevelData extends WorldData {
 
-public interface ExtendedMinecraftServer {
-
-    Path getStoragePath(Level world);
+    @Accessor
+    @Mutable
+    void setWorldGenSettings(WorldGenSettings options);
 
 }

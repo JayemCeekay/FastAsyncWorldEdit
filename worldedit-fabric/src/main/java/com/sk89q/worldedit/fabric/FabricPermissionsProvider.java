@@ -19,32 +19,51 @@
 
 package com.sk89q.worldedit.fabric;
 
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.world.GameMode;
+import me.lucko.fabric.api.permissions.v0.Permissions;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
 
 public interface FabricPermissionsProvider {
 
-    boolean hasPermission(ServerPlayerEntity player, String permission);
+    boolean hasPermission(ServerPlayer player, String permission);
 
     void registerPermission(String permission);
 
     class VanillaPermissionsProvider implements FabricPermissionsProvider {
 
-        private FabricPlatform platform;
+        private final FabricPlatform platform;
 
         public VanillaPermissionsProvider(FabricPlatform platform) {
             this.platform = platform;
         }
 
         @Override
-        public boolean hasPermission(ServerPlayerEntity player, String permission) {
+        public boolean hasPermission(ServerPlayer player, String permission) {
             FabricConfiguration configuration = platform.getConfiguration();
-            return configuration.cheatMode ||
-                    player.server.getPlayerManager().isOperator(player.getGameProfile()) ||
-                    (configuration.creativeEnable && player.interactionManager.getGameMode() == GameMode.CREATIVE);
+            return configuration.cheatMode
+                || player.server.getPlayerList().isOp(player.getGameProfile())
+                || (configuration.creativeEnable && player.gameMode.getGameModeForPlayer() == GameType.CREATIVE);
         }
 
         @Override
-        public void registerPermission(String permission) {}
+        public void registerPermission(String permission) {
+        }
+    }
+
+    class LuckoFabricPermissionsProvider extends VanillaPermissionsProvider {
+
+        public LuckoFabricPermissionsProvider(FabricPlatform platform) {
+            super(platform);
+        }
+
+        @Override
+        public boolean hasPermission(ServerPlayer player, String permission) {
+            return Permissions.getPermissionValue(player, permission)
+                .orElseGet(() -> super.hasPermission(player, permission));
+        }
+
+        @Override
+        public void registerPermission(String permission) {
+        }
     }
 }
