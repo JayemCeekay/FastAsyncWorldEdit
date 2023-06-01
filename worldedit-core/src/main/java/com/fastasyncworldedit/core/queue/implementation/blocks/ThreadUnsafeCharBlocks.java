@@ -26,8 +26,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Equivalent to {@link CharSetBlocks} without any attempt to make thread-safe for improved performance.
- * This is currently only used as a "copy" of {@link CharSetBlocks} to provide to
+ * Equivalent to {@link DataArraySetBlocks} without any attempt to make thread-safe for improved performance.
+ * This is currently only used as a "copy" of {@link DataArraySetBlocks} to provide to
  * {@link com.fastasyncworldedit.core.queue.IBatchProcessor} instances for processing without overlapping the continuing edit.
  *
  * @since 2.6.2
@@ -37,7 +37,7 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
     private static final Logger LOGGER = LogManagerCompat.getLogger();
 
     private final char defaultOrdinal;
-    private char[][] blocks;
+    private DataArray[] blocks;
     private int minSectionPosition;
     private int maxSectionPosition;
     private int sectionCount;
@@ -52,12 +52,12 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
     private int bitMask;
 
     /**
-     * New instance given the data stored in a {@link CharSetBlocks} instance.
+     * New instance given the data stored in a {@link DataArraySetBlocks} instance.
      *
      * @since 2.6.2
      */
     ThreadUnsafeCharBlocks(
-            char[][] blocks,
+            DataArray[] blocks,
             int minSectionPosition,
             int maxSectionPosition,
             BiomeType[][] biomes,
@@ -91,11 +91,11 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
     @Override
     public boolean hasSection(int layer) {
         layer -= minSectionPosition;
-        return layer >= 0 && layer < blocks.length && blocks[layer] != null && blocks[layer].length == FaweCache.INSTANCE.BLOCKS_PER_LAYER;
+        return layer >= 0 && layer < blocks.length && blocks[layer] != null;
     }
 
     @Override
-    public char[] load(int layer) {
+    public DataArray load(int layer) {
         updateSectionIndexRange(layer);
         layer -= minSectionPosition;
         char[] arr = blocks[layer];
@@ -107,7 +107,7 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
 
     @Nullable
     @Override
-    public char[] loadIfPresent(int layer) {
+    public DataArray loadIfPresent(int layer) {
         if (layer < minSectionPosition || layer > maxSectionPosition) {
             return null;
         }
@@ -183,7 +183,7 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
             return defaultOrdinal;
         }
         final int index = (y & 15) << 8 | z << 4 | x;
-        return blocks[layer - minSectionPosition][index];
+        return (char) blocks[layer - minSectionPosition].getAt(index);
     }
 
     @Override
@@ -225,7 +225,7 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
         final int layer = y >> 4;
         final int index = (y & 15) << 8 | z << 4 | x;
         try {
-            blocks[layer][index] = value;
+            blocks[layer].setAt(index, value);
         } catch (ArrayIndexOutOfBoundsException exception) {
             LOGGER.error("Tried setting block at coordinates (" + x + "," + y + "," + z + ")");
             assert Fawe.platform() != null;
@@ -242,7 +242,7 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
     }
 
     @Override
-    public void setBlocks(int layer, char[] data) {
+    public void setBlocks(int layer, DataArray data) {
         updateSectionIndexRange(layer);
         layer -= minSectionPosition;
         this.blocks[layer] = data;
@@ -425,7 +425,7 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
 
     @Override
     public IChunkSet reset() {
-        blocks = new char[sectionCount][];
+        blocks = new DataArray[sectionCount];
         biomes = new BiomeType[sectionCount][];
         light = new char[sectionCount][];
         skyLight = new char[sectionCount][];
@@ -444,11 +444,12 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
 
     @Override
     public IChunkSet createCopy() {
-        char[][] blocksCopy = new char[sectionCount][];
+        DataArray[] blocksCopy = new DataArray[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
-            blocksCopy[i] = new char[FaweCache.INSTANCE.BLOCKS_PER_LAYER];
             if (blocks[i] != null) {
-                System.arraycopy(blocks[i], 0, blocksCopy[i], 0, FaweCache.INSTANCE.BLOCKS_PER_LAYER);
+                blocksCopy[i] = DataArray.createCopy(blocks[i]);
+            } else {
+                blocksCopy[i] = DataArray.createEmpty();
             }
         }
         BiomeType[][] biomesCopy;
@@ -463,8 +464,8 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
                 }
             }
         }
-        char[][] lightCopy = CharSetBlocks.createLightCopy(light, sectionCount);
-        char[][] skyLightCopy = CharSetBlocks.createLightCopy(skyLight, sectionCount);
+        char[][] lightCopy = DataArraySetBlocks.createLightCopy(light, sectionCount);
+        char[][] skyLightCopy = DataArraySetBlocks.createLightCopy(skyLight, sectionCount);
         return new ThreadUnsafeCharBlocks(
                 blocksCopy,
                 minSectionPosition,
@@ -496,6 +497,9 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
         if (layer < minSectionPosition) {
             int diff = minSectionPosition - layer;
             sectionCount += diff;
+            DataArray[] tmpBlocks = new DataArray[sectionCount];
+            System.arraycopy(blocks, 0, tmpBlocks, diff, blocks.length);
+            blocks = tmpBlocks;
             minSectionPosition = layer;
             resizeSectionsArrays(layer, diff, false); // prepend new layer(s)
         } else {
@@ -507,7 +511,7 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
     }
 
     private void resizeSectionsArrays(int layer, int diff, boolean appendNew) {
-        char[][] tmpBlocks = new char[sectionCount][];
+        DataArray[] tmpBlocks = new DataArray[sectionCount];
         int destPos = appendNew ? 0 : diff;
         System.arraycopy(blocks, 0, tmpBlocks, destPos, blocks.length);
         blocks = tmpBlocks;

@@ -331,11 +331,10 @@ public class DataArraySetBlocks extends DataArrayBlocks implements IChunkSet {
 
     @Override
     public ThreadUnsafeCharBlocks createCopy() {
-        char[][] blocksCopy = new char[sectionCount][];
+        DataArray[] blocksCopy = new DataArray[sectionCount];
         for (int i = 0; i < sectionCount; i++) {
             if (blocks[i] != null) {
-                blocksCopy[i] = new char[FaweCache.INSTANCE.BLOCKS_PER_LAYER];
-                System.arraycopy(blocks[i], 0, blocksCopy[i], 0, FaweCache.INSTANCE.BLOCKS_PER_LAYER);
+                blocksCopy[i] = DataArray.createCopy(blocks[i]);
             }
         }
         BiomeType[][] biomesCopy;
