@@ -1,7 +1,6 @@
 package com.fastasyncworldedit.core.queue.implementation.blocks;
 
 import com.fastasyncworldedit.core.Fawe;
-import com.fastasyncworldedit.core.FaweCache;
 import com.fastasyncworldedit.core.extent.processor.heightmap.HeightMapType;
 import com.fastasyncworldedit.core.math.BlockVector3ChunkMap;
 import com.fastasyncworldedit.core.queue.IBlocks;
@@ -188,13 +187,7 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
 
     @Override
     public BiomeType getBiomeType(int x, int y, int z) {
-        int layer;
-        if (biomes == null || (y >> 4) < minSectionPosition || (y >> 4) > maxSectionPosition) {
-            return null;
-        } else if (biomes[(layer = (y >> 4) - minSectionPosition)] == null) {
-            return null;
-        }
-        return biomes[layer][(y & 15) >> 2 | (z >> 2) << 2 | x >> 2];
+        return ChunkSectionedChunk.getBiomeType(x, y, z, biomes, minSectionPosition, maxSectionPosition);
     }
 
     @Override
