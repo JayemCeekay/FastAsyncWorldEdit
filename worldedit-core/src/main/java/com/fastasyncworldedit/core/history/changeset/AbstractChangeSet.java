@@ -37,6 +37,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -168,12 +169,11 @@ public abstract class AbstractChangeSet implements ChangeSet, IBatchProcessor {
             if (tmpGet == null) {
                 blocksGet = FaweCache.INSTANCE.EMPTY_DATA;
             } else {
-                blocksGet = DataArray.createEmpty();
-                tmpGet.copyInto(blocksGet);
+                blocksGet = DataArray.createCopy(tmpGet);
             }
-            DataArray blocksSet = DataArray.createEmpty();
-            DataArray tmpSet = set.load(layer);
-            tmpSet.copyInto(blocksSet);
+            // loadIfPresent shouldn't be null if set.hasSection(layer) is true
+            DataArray tmpSet = Objects.requireNonNull(set.loadIfPresent(layer));
+            DataArray blocksSet = DataArray.createCopy(tmpSet);
 
             // Account for negative layers
             int by = layer << 4;
@@ -365,7 +365,6 @@ public abstract class AbstractChangeSet implements ChangeSet, IBatchProcessor {
                 if (completeNow) {
                     throw t;
                 } else {
-                    t.printStackTrace();
                     int hash = t.getMessage().hashCode();
                     if (lastException.getAndSet(hash) != hash) {
                         LOGGER.catching(t);

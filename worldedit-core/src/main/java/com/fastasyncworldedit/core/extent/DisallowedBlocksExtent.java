@@ -56,7 +56,6 @@ public class DisallowedBlocksExtent extends AbstractDelegateExtent implements IB
             this.blockedBlocks = new HashSet<>();
             for (String block : blockedBlocks) {
                 if (block.indexOf('[') == -1 || block.indexOf(']') == -1) {
-                    blockedBlocks.add(block);
                     this.blockedBlocks.add(block);
                     continue;
                 }
@@ -135,7 +134,7 @@ public class DisallowedBlocksExtent extends AbstractDelegateExtent implements IB
             if (!set.hasSection(layer)) {
                 continue;
             }
-            DataArray blocks = set.load(layer);
+            DataArray blocks = Objects.requireNonNull(set.loadIfPresent(layer));
             it:
             for (int i = 0; i < DataArray.CHUNK_SECTION_SIZE; i++) {
                 int block = blocks.getAt(i);

@@ -12,6 +12,9 @@ import com.sk89q.worldedit.world.block.BlockTypesCache;
 
 import javax.annotation.Nullable;
 
+/**
+ * Common code for post-processing on different versions
+ */
 public abstract class PostProcessor implements IBatchProcessor {
 
     @Nullable

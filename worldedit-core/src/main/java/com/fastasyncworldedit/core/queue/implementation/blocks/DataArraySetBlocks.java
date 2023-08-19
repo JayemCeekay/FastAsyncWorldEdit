@@ -403,45 +403,46 @@ public class DataArraySetBlocks extends DataArrayBlocks implements IChunkSet {
         if (layer < minSectionPosition) {
             int diff = minSectionPosition - layer;
             sectionCount += diff;
-            DataArray[] tmpBlocks = new DataArray[sectionCount];
-            Section[] tmpSections = new Section[sectionCount];
-            Object[] tmpSectionLocks = new Object[sectionCount];
-            resizeDataArrays(layer, diff, tmpBlocks, tmpSections, tmpSectionLocks);
+            minSectionPosition = layer;
+            resizeSectionsArrays(diff, false); // prepend new layer(s)
         } else {
             int diff = layer - maxSectionPosition;
             sectionCount += diff;
-            DataArray[] tmpBlocks = new DataArray[sectionCount];
-            Section[] tmpSections = new Section[sectionCount];
-            Object[] tmpSectionLocks = new Object[sectionCount];
-            System.arraycopy(blocks, 0, tmpBlocks, 0, blocks.length);
+            maxSectionPosition = layer;
+            resizeSectionsArrays(diff, true); // append new layer(s)
         }
     }
 
-    private void resizeDataArrays(int layer, int diff, DataArray[] tmpBlocks, Section[] tmpSections, Object[] tmpSectionLocks) {
-        System.arraycopy(blocks, 0, tmpBlocks, diff, blocks.length);
-        System.arraycopy(sections, 0, tmpSections, diff, sections.length);
-        System.arraycopy(sectionLocks, 0, tmpSectionLocks, diff, sections.length);
-        for (int i = 0; i < diff; i++) {
+    private void resizeSectionsArrays(int diff, boolean appendNew) {
+        DataArray[] tmpBlocks = new DataArray[sectionCount];
+        Section[] tmpSections = new Section[sectionCount];
+        Object[] tmpSectionLocks = new Object[sectionCount];
+        int destPos = appendNew ? 0 : diff;
+        System.arraycopy(blocks, 0, tmpBlocks, destPos, blocks.length);
+        System.arraycopy(sections, 0, tmpSections, destPos, sections.length);
+        System.arraycopy(sectionLocks, 0, tmpSectionLocks, destPos, sections.length);
+        int toFillFrom = appendNew ? sectionCount - diff : 0;
+        int toFillTo = appendNew ? sectionCount : diff;
+        for (int i = toFillFrom; i < toFillTo; i++) {
             tmpSections[i] = EMPTY;
             tmpSectionLocks[i] = new Object();
         }
         blocks = tmpBlocks;
         sections = tmpSections;
         sectionLocks = tmpSectionLocks;
-        minSectionPosition = layer;
         if (biomes != null) {
             BiomeType[][] tmpBiomes = new BiomeType[sectionCount][64];
-            System.arraycopy(biomes, 0, tmpBiomes, diff, biomes.length);
+            System.arraycopy(biomes, 0, tmpBiomes, destPos, biomes.length);
             biomes = tmpBiomes;
         }
         if (light != null) {
             char[][] tmplight = new char[sectionCount][];
-            System.arraycopy(light, 0, tmplight, diff, light.length);
+            System.arraycopy(light, 0, tmplight, destPos, light.length);
             light = tmplight;
         }
         if (skyLight != null) {
             char[][] tmplight = new char[sectionCount][];
-            System.arraycopy(skyLight, 0, tmplight, diff, skyLight.length);
+            System.arraycopy(skyLight, 0, tmplight, destPos, skyLight.length);
             skyLight = tmplight;
         }
     }

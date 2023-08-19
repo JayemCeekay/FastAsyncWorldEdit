@@ -77,6 +77,10 @@ public enum FaweCache implements Trimable {
     public final int BLOCKS_PER_LAYER = 4096;
 
     public final char[] EMPTY_CHAR_4096 = new char[4096];
+
+    /**
+     * @since TODO
+     */
     public final DataArray EMPTY_DATA = DataArray.createEmpty();
 
     /**

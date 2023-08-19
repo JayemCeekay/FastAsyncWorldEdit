@@ -98,9 +98,9 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
     public DataArray load(int layer) {
         updateSectionIndexRange(layer);
         layer -= minSectionPosition;
-        char[] arr = blocks[layer];
+        DataArray arr = blocks[layer];
         if (arr == null) {
-            arr = blocks[layer] = new char[FaweCache.INSTANCE.BLOCKS_PER_LAYER];
+            arr = blocks[layer] = DataArray.createEmpty();
         }
         return arr;
     }
@@ -497,9 +497,6 @@ public class ThreadUnsafeCharBlocks implements IChunkSet, IBlocks {
         if (layer < minSectionPosition) {
             int diff = minSectionPosition - layer;
             sectionCount += diff;
-            DataArray[] tmpBlocks = new DataArray[sectionCount];
-            System.arraycopy(blocks, 0, tmpBlocks, diff, blocks.length);
-            blocks = tmpBlocks;
             minSectionPosition = layer;
             resizeSectionsArrays(layer, diff, false); // prepend new layer(s)
         } else {

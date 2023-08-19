@@ -42,7 +42,6 @@ import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.block.BlockTypesCache;
 
 import javax.annotation.Nullable;
-import java.lang.reflect.Array;
 import java.util.List;
 import java.util.Set;
 

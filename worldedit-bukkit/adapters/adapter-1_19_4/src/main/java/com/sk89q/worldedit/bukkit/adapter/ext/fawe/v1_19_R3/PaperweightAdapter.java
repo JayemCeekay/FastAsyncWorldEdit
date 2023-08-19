@@ -27,6 +27,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Lifecycle;
+import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.jnbt.NBTConstants;
 import com.sk89q.worldedit.WorldEditException;
 import com.sk89q.worldedit.blocks.BaseItem;
@@ -136,7 +137,6 @@ import org.bukkit.generator.ChunkGenerator;
 import org.spigotmc.SpigotConfig;
 import org.spigotmc.WatchdogThread;
 
-import javax.annotation.Nullable;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -158,6 +158,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

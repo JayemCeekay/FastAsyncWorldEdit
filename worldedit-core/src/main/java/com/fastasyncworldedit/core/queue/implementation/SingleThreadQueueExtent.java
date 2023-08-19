@@ -15,6 +15,7 @@ import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.IChunkSet;
 import com.fastasyncworldedit.core.queue.IQueueChunk;
 import com.fastasyncworldedit.core.queue.IQueueExtent;
+import com.fastasyncworldedit.core.queue.implementation.blocks.DataArraySetBlocks;
 import com.fastasyncworldedit.core.queue.implementation.chunk.ChunkHolder;
 import com.fastasyncworldedit.core.queue.implementation.chunk.NullChunk;
 import com.fastasyncworldedit.core.util.MathMan;
@@ -174,7 +175,7 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
             };
         }
         if (set == null) {
-            set = QueueHelper.getIChunkSetIChunkCache();
+            set = (x, z) -> DataArraySetBlocks.newInstance();
         }
         this.cacheGet = get;
         this.cacheSet = set;
