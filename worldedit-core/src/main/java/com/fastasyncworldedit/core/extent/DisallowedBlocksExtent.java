@@ -138,6 +138,9 @@ public class DisallowedBlocksExtent extends AbstractDelegateExtent implements IB
             it:
             for (int i = 0; i < DataArray.CHUNK_SECTION_SIZE; i++) {
                 int block = blocks.getAt(i);
+                if (block == BlockTypesCache.ReservedIDs.__RESERVED__) {
+                    continue;
+                }
                 BlockState state = BlockTypesCache.states[block];
                 if (blockedBlocks != null) {
                     if (blockedBlocks.contains(state.getBlockType().getId())) {
