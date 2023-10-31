@@ -182,15 +182,10 @@ public abstract class AbstractChangeSet implements ChangeSet, IBatchProcessor {
                 for (int z = 0; z < 16; z++) {
                     int zz = z + bz;
                     for (int x = 0; x < 16; x++, index++) {
-                        int xx = bx + x;
-                        int from = blocksGet.getAt(index);
-                        if (from == BlockTypesCache.ReservedIDs.__RESERVED__) {
-                            from = BlockTypesCache.ReservedIDs.AIR;
-                        }
                         final int combinedTo = blocksSet.getAt(index);
                         if (combinedTo != BlockTypesCache.ReservedIDs.__RESERVED__) {
                             int xx = bx + x;
-                            int from = blocksGet[index];
+                            int from = blocksGet.getAt(index);
                             if (from == BlockTypesCache.ReservedIDs.__RESERVED__) {
                                 from = BlockTypesCache.ReservedIDs.AIR;
                             }
