@@ -23,6 +23,7 @@ public class HeightmapProcessor implements IBatchProcessor {
 
     static {
         Arrays.fill(COMPLETE, true);
+        Arrays.fill(AIR_LAYER, (char) BlockTypesCache.ReservedIDs.AIR);
     }
 
     private final int minY;
