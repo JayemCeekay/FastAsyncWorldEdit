@@ -59,11 +59,21 @@ public final class CommandWrapper {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, org.enginehub.piston.Command command) {
         ImmutableList.Builder<String> aliases = ImmutableList.builder();
         aliases.add(command.getName()).addAll(command.getAliases());
+
+        Command<CommandSourceStack> commandRunner =
+                ctx -> {
+                    WorldEdit.getInstance().getEventBus().post(new com.sk89q.worldedit.event.platform.CommandEvent(
+                            adaptPlayer(ctx.getSource().getPlayer()),
+                            ctx.getInput()
+                    ));
+                    return 0;
+                };
+
         for (String alias : aliases.build()) {
-            LiteralArgumentBuilder<CommandSourceStack> base = literal(alias).executes(FAKE_COMMAND)
+            LiteralArgumentBuilder<CommandSourceStack> base = literal(alias).executes(commandRunner)
                     .then(argument("args", StringArgumentType.greedyString())
                             .suggests(CommandWrapper::suggest)
-                            .executes(FAKE_COMMAND));
+                            .executes(commandRunner));
             if (command.getCondition() != org.enginehub.piston.Command.Condition.TRUE) {
                 base.requires(requirementsFor(command));
             }
@@ -71,13 +81,14 @@ public final class CommandWrapper {
         }
     }
 
+    /*
     public static final Command<CommandSourceStack> FAKE_COMMAND = ctx -> {
         if (ctx.getSource().getLevel().isClientSide) {
             return 0;
         }
         return 1;
     };
-
+*/
     private static Predicate<CommandSourceStack> requirementsFor(org.enginehub.piston.Command mapping) {
         return ctx -> {
             final Entity entity = ctx.getEntity();

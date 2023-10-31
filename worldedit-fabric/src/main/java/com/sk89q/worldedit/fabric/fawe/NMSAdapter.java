@@ -137,7 +137,6 @@ public class NMSAdapter implements FAWEPlatformAdapterImpl {
         if (!(chunk instanceof FabricGetBlocks)) {
             throw new IllegalArgumentException("(IChunkGet) chunk not of type FabricGetBlocks");
         }
-        LOGGER.info("sending chunk");
         ((FabricGetBlocks) chunk).send(mask, lighting);
     }
 

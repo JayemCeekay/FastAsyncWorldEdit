@@ -7,9 +7,10 @@ import com.fastasyncworldedit.core.queue.implementation.blocks.DataArray;
 import com.fastasyncworldedit.core.util.MathMan;
 import com.fastasyncworldedit.core.util.ReflectionUtils;
 import com.fastasyncworldedit.core.util.TaskManager;
+import com.google.common.collect.Iterators;
 import com.mojang.datafixers.util.Either;
-import com.sk89q.worldedit.fabric.FabricAdapter;
 import com.sk89q.worldedit.fabric.FabricWorldEdit;
+import com.sk89q.worldedit.fabric.internal.FabricTransmogrifier;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.biome.BiomeTypes;
 import com.sk89q.worldedit.world.block.BlockState;
@@ -45,7 +46,6 @@ import sun.misc.Unsafe;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -57,6 +57,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class FabricPlatformAdapter extends NMSAdapter {
 
@@ -98,10 +99,6 @@ public class FabricPlatformAdapter extends NMSAdapter {
             ThreadLocal.withInitial(() -> new DelegateSemaphore(1, null));
 
     static DelegateSemaphore applyLock(LevelChunkSection section) {
-      /*  if (PaperLib.isPaper()) {
-            return SEMAPHORE_THREAD_LOCAL.get();
-        }*/
-
         try {
             synchronized (section) {
                 Unsafe unsafe = ReflectionUtils.getUnsafe();
@@ -124,7 +121,6 @@ public class FabricPlatformAdapter extends NMSAdapter {
     }
 
     public static LevelChunk ensureLoaded(ServerLevel serverLevel, int chunkX, int chunkZ) {
-        // if (!PaperLib.isPaper()) {
         LevelChunk nmsChunk = serverLevel.getChunkSource().getChunk(chunkX, chunkZ, false);
         if (nmsChunk != null) {
             return nmsChunk;
@@ -132,34 +128,13 @@ public class FabricPlatformAdapter extends NMSAdapter {
         if (Fawe.isMainThread()) {
             return serverLevel.getChunk(chunkX, chunkZ);
         }
-      /*  } else {
-            LevelChunk nmsChunk = serverLevel.getChunkSource().getChunkAtIfCachedImmediately(chunkX, chunkZ);
-            if (nmsChunk != null) {
-                return nmsChunk;
-            }
-            nmsChunk = serverLevel.getChunkSource().getChunkAtIfLoadedImmediately(chunkX, chunkZ);
-            if (nmsChunk != null) {
-                return nmsChunk;
-            }
-            // Avoid "async" methods from the main thread.
-            if (Fawe.isMainThread()) {
-                return serverLevel.getChunk(chunkX, chunkZ);
-            }
-            CompletableFuture<org.bukkit.Chunk> future = serverLevel.getWorld().getChunkAtAsync(chunkX, chunkZ, true, true);
-            try {
-                CraftChunk chunk = (CraftChunk) future.get();
-                return chunk.getHandle();
-            } catch (Throwable e) {
-                e.printStackTrace();
-            }
-        }*/
         return TaskManager.taskManager().sync(() -> serverLevel.getChunk(chunkX, chunkZ));
     }
 
     public static ChunkHolder getPlayerChunk(ServerLevel nmsWorld, final int chunkX, final int chunkZ) {
         ChunkMap chunkMap = nmsWorld.getChunkSource().chunkMap;
         try {
-            return (ChunkHolder) chunkMap.getVisibleChunkIfPresent(ChunkPos.asLong(chunkX, chunkZ));
+            return chunkMap.getVisibleChunkIfPresent(ChunkPos.asLong(chunkX, chunkZ));
         } catch (Throwable thr) {
             throw new RuntimeException(thr);
         }
@@ -172,34 +147,16 @@ public class FabricPlatformAdapter extends NMSAdapter {
             return;
         }
         ChunkPos coordIntPair = new ChunkPos(chunkX, chunkZ);
-        // UNLOADED_CHUNK
-        Optional<LevelChunk> optional = ((Either) chunkHolder
-                .getTickingChunkFuture()
-                .getNow(ChunkHolder.UNLOADED_LEVEL_CHUNK)).left();
-        /*
-        if (PaperLib.isPaper()) {
-            // getChunkAtIfLoadedImmediately is paper only
-            optional = optional.or(() -> Optional.ofNullable(nmsWorld
-                    .getChunkSource()
-                    .getChunkAtIfLoadedImmediately(chunkX, chunkZ)));
-        }*/
-        if (optional.isEmpty()) {
+        LevelChunk levelChunk;
+        levelChunk = ((Optional<LevelChunk>) ((Either) chunkHolder
+                .getTickingChunkFuture() // method is not present with new paper chunk system
+                .getNow(ChunkHolder.UNLOADED_LEVEL_CHUNK)).left())
+                .orElse(null);
+        if (levelChunk == null) {
             return;
         }
-        LevelChunk levelChunk = optional.get();
         TaskManager.taskManager().task(() -> {
             ClientboundLevelChunkWithLightPacket packet;
-            /*
-            if (PaperLib.isPaper()) {
-                packet = new ClientboundLevelChunkWithLightPacket(
-                        levelChunk,
-                        nmsWorld.getChunkSource().getLightEngine(),
-                        null,
-                        null,
-                        true,
-                        false // last false is to not bother with x-ray
-                )
-            } else {*/
             // deprecated on paper - deprecation suppressed
             packet = new ClientboundLevelChunkWithLightPacket(
                     levelChunk,
@@ -208,7 +165,6 @@ public class FabricPlatformAdapter extends NMSAdapter {
                     null,
                     true
             );
-            // }
             nearbyPlayers(nmsWorld, coordIntPair).forEach(p -> p.connection.send(packet));
         });
     }
@@ -259,7 +215,6 @@ public class FabricPlatformAdapter extends NMSAdapter {
             } else if (bitsPerEntry > 8) {
                 bitsPerEntry = MathMan.log2nlz(Block.BLOCK_STATE_REGISTRY.size() - 1);
             }
-
             int bitsPerEntryNonZero = Math.max(bitsPerEntry, 1); // We do want to use zero sometimes
             final int blocksPerLong = MathMan.floorZero((double) 64 / bitsPerEntryNonZero);
             final int blockBitArrayEnd = MathMan.ceilZero((float) 4096 / blocksPerLong);
@@ -287,7 +242,7 @@ public class FabricPlatformAdapter extends NMSAdapter {
                     int ordinal = paletteToBlock[i];
                     blockToPalette[ordinal] = Integer.MAX_VALUE;
                     final BlockState state = BlockTypesCache.states[ordinal];
-                    palette.add(FabricAdapter.adapt(state));
+                    palette.add(FabricTransmogrifier.transmogToMinecraft(state));
                 }
             } else {
                 palette = List.of();
@@ -366,7 +321,7 @@ public class FabricPlatformAdapter extends NMSAdapter {
         }
         int biomeCount = palette.size();
         int bitsPerEntry = MathMan.log2nlz(biomeCount - 1);
-        PalettedContainer.Configuration configuration = PalettedContainer.Strategy.SECTION_STATES.getConfiguration(
+        PalettedContainer.Configuration<Biome> configuration = PalettedContainer.Strategy.SECTION_STATES.getConfiguration(
                 new FakeIdMapBiome(biomeCount),
                 bitsPerEntry
         );
@@ -465,21 +420,38 @@ public class FabricPlatformAdapter extends NMSAdapter {
                 BlockEntity blockEntity = levelChunk.blockEntities.remove(beacon.getBlockPos());
                 if (blockEntity != null) {
                     if (!levelChunk.getLevel().isClientSide) {
-                        levelChunk.removeGameEventListener(beacon, levelChunk.getLevel().getServer().getLevel(levelChunk.getLevel().dimension()));
+                        levelChunk.removeGameEventListener(
+                                beacon,
+                                levelChunk.getLevel().getServer().getLevel(levelChunk.getLevel().dimension())
+                        );
                     }
                     beacon.remove = true;
                 }
             }
-           levelChunk.removeBlockEntityTicker(beacon.getBlockPos());
+            levelChunk.removeBlockEntityTicker(beacon.getBlockPos());
         } catch (Throwable throwable) {
             throwable.printStackTrace();
         }
     }
 
     static List<Entity> getEntities(LevelChunk chunk) {
-        return null;
-        /*
-        return chunk.level.entityManager.getEntities(new ChunkPos(chunk.locX, chunk.locZ));*/
+        return Arrays.stream(Iterators.toArray(chunk
+                .getLevel()
+                .getServer()
+                .getLevel(chunk.getLevel().dimension()).entityManager
+                .getEntityGetter()
+                .getAll()
+                .iterator(), Entity.class)).collect(
+                Collectors.toList());
+        /*ExceptionCollector<RuntimeException> collector = new ExceptionCollector<>();
+        try {
+            //noinspection unchecked
+            return ((PersistentEntitySectionManager<Entity>) (chunk.getLevel().getServer().getLevel(chunk.getLevel().dimension()).entityManager.
+        } catch (IllegalAccessException e) {
+            collector.add(new RuntimeException("Failed to lookup entities [PAPER=false]", e));
+        }
+        collector.throwIfPresent();*/
+        //return List.of();
     }
 
     record FakeIdMapBlock(int size) implements IdMap<net.minecraft.world.level.block.state.BlockState> {

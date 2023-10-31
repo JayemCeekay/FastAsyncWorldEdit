@@ -17,7 +17,9 @@ import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.jnbt.ListTag;
 import com.sk89q.jnbt.StringTag;
 import com.sk89q.jnbt.Tag;
+import com.sk89q.worldedit.fabric.FabricEntity;
 import com.sk89q.worldedit.fabric.FabricWorldEdit;
+import com.sk89q.worldedit.fabric.internal.NBTConverter;
 import com.sk89q.worldedit.internal.Constants;
 import com.sk89q.worldedit.internal.util.LogManagerCompat;
 import com.sk89q.worldedit.math.BlockVector3;
@@ -30,13 +32,17 @@ import net.minecraft.core.IdMap;
 import net.minecraft.core.Registry;
 import net.minecraft.core.SectionPos;
 import net.minecraft.nbt.IntTag;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.BitStorage;
 import net.minecraft.util.ZeroBitStorage;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.LeashFenceKnotEntity;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.entity.BeaconBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.DataLayer;
@@ -63,9 +69,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -79,6 +87,8 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
             tileEntity -> new FabricLazyCompoundTag(Suppliers.memoize(tileEntity::saveWithId));
     private final FabricFaweAdapter adapter = FabricWorldEdit.inst.getFaweAdapter();
     private final ReadWriteLock sectionLock = new ReentrantReadWriteLock();
+    private final ReentrantLock callLock = new ReentrantLock();
+
     private final ServerLevel serverLevel;
     private final int chunkX;
     private final int chunkZ;
@@ -86,14 +96,17 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
     private final int maxHeight;
     private final Registry<Biome> biomeRegistry;
     private final IdMap<Holder<Biome>> biomeHolderIdMap;
+    private final ConcurrentHashMap<Integer, FabricGetBlocks_Copy> copies = new ConcurrentHashMap<>();
+    private final Object sendLock = new Object();
+
     private LevelChunkSection[] sections;
     private LevelChunk levelChunk;
     private DataLayer[] blockLight;
     private DataLayer[] skyLight;
     private boolean createCopy = false;
-    private FabricGetBlocks_Copy copy = null;
     private boolean forceLoadSections = true;
     private boolean lightUpdate = false;
+    private int copyKey = 0;
 
     public FabricGetBlocks(ServerLevel serverLevel, int chunkX, int chunkZ) {
         super(serverLevel.getMinBuildHeight() >> 4, (serverLevel.getMaxBuildHeight() - 1) >> 4);
@@ -124,13 +137,27 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
     }
 
     @Override
-    public void setCreateCopy(boolean createCopy) {
+    public int setCreateCopy(boolean createCopy) {
+        if (!callLock.isHeldByCurrentThread()) {
+            throw new IllegalStateException("Attempting to set if chunk GET should create copy, but it is not call-locked.");
+        }
         this.createCopy = createCopy;
+        return ++this.copyKey;
     }
 
     @Override
-    public IChunkGet getCopy() {
-        return copy;
+    public IChunkGet getCopy(final int key) {
+        return copies.remove(key);
+    }
+
+    @Override
+    public void lockCall() {
+        this.callLock.lock();
+    }
+
+    @Override
+    public void unlockCall() {
+        this.callLock.unlock();
     }
 
     @Override
@@ -295,27 +322,35 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
 
     @Override
     public CompoundTag getEntity(UUID uuid) {
-        /*
-        Entity entity = serverLevel.getEntity(uuid);
+        ensureLoaded(serverLevel, chunkX, chunkZ);
+        List<Entity> entities = FabricPlatformAdapter.getEntities(getChunk());
+        Entity entity = null;
+        for (Entity e : entities) {
+            if (e.getUUID().equals(uuid)) {
+                entity = e;
+                break;
+            }
+        }
         if (entity != null) {
-            org.bukkit.entity.Entity bukkitEnt = entity.getBukkitEntity();
-            return FabricAdapter.adapt(bukkitEnt).getState().getNbtData();
+            return new FabricEntity(entity).getState().getNbtData();
         }
         for (CompoundTag tag : getEntities()) {
             if (uuid.equals(tag.getUUID())) {
                 return tag;
             }
-        }*/
+        }
         return null;
     }
 
     @Override
     public Set<CompoundTag> getEntities() {
+        ensureLoaded(serverLevel, chunkX, chunkZ);
         List<Entity> entities = FabricPlatformAdapter.getEntities(getChunk());
         if (entities.isEmpty()) {
             return Collections.emptySet();
         }
         int size = entities.size();
+
         return new AbstractSet<>() {
             @Override
             public int size() {
@@ -348,7 +383,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                 Iterable<CompoundTag> result = entities.stream().map(input -> {
                     net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
                     input.save(tag);
-                    return (CompoundTag) adapter.toNative(tag);
+                    return NBTConverter.toNative(tag);
                 }).collect(Collectors.toList());
                 return result.iterator();
             }
@@ -366,8 +401,16 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
     @Override
     @SuppressWarnings("rawtypes")
     public synchronized <T extends Future<T>> T call(IChunkSet set, Runnable finalizer) {
+        if (!callLock.isHeldByCurrentThread()) {
+            throw new IllegalStateException("Attempted to call chunk GET but chunk was not call-locked.");
+        }
         forceLoadSections = false;
-        copy = createCopy ? new FabricGetBlocks_Copy(levelChunk) : null;
+        FabricGetBlocks_Copy copy = createCopy ? new FabricGetBlocks_Copy(levelChunk) : null; if (createCopy) {
+            if (copies.containsKey(copyKey)) {
+                throw new IllegalStateException("Copy key already used.");
+            }
+            copies.put(copyKey, copy);
+        }
         try {
             ServerLevel nmsWorld = serverLevel;
             LevelChunk nmsChunk = ensureLoaded(nmsWorld, chunkX, chunkZ);
@@ -477,10 +520,6 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                         // Don't attempt to tick section whilst we're editing
                         if (existingSection != null) {
                             FabricPlatformAdapter.clearCounts(existingSection);
-                            /*
-                            if (PaperLib.isPaper()) {
-                                existingSection.tickingList.clear();
-                            }*/
                         }
 
                         if (createCopy) {
@@ -526,10 +565,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
 
                         //ensure that the server doesn't try to tick the chunksection while we're editing it. (Again)
                         FabricPlatformAdapter.clearCounts(existingSection);
-                        /*
-                        if (PaperLib.isPaper()) {
-                            existingSection.tickingList.clear();
-                        }*/
+
                         DelegateSemaphore lock = FabricPlatformAdapter.applyLock(existingSection);
 
                         // Synchronize to prevent further acquisitions
@@ -548,8 +584,6 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                                 } else if (!update(getSectionIndex, DataArray.createEmpty(), true)
                                         .equals(loadPrivately(layerNo))) {
                                     this.reset(layerNo);
-                            /*} else if (lock.isModified()) {
-                                this.reset(layerNo);*/
                                 }
                             } finally {
                                 sectionLock.writeLock().unlock();
@@ -618,11 +652,10 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                     syncTasks = new Runnable[4];
 
                     syncTasks[3] = () -> {
-                        /*
                         for (BlockEntity beacon : finalBeacons) {
                             BeaconBlockEntity.playSound(beacon.getLevel(), beacon.getBlockPos(), SoundEvents.BEACON_DEACTIVATE);
-                            new BeaconDeactivatedEvent(CraftBlock.at(beacon.getLevel(), beacon.getBlockPos())).callEvent();
-                        }*/
+                            beacon.setRemoved();
+                        }
                     };
                 }
 
@@ -648,13 +681,13 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                             }
                         }
                         if (Settings.settings().EXPERIMENTAL.REMOVE_ENTITY_FROM_WORLD_ON_CHUNK_FAIL) {
-                            /*
+
                             for (UUID uuid : entityRemoves) {
-                                Entity entity = nmsWorld.entityManager.getEntityGetter().get(uuid);
+                                Entity entity = nmsWorld.getEntity(uuid);
                                 if (entity != null) {
                                     removeEntity(entity);
                                 }
-                            }*/
+                            }
                         }
                         // Only save entities that were actually removed to history
                         set.getEntityRemoves().clear();
@@ -670,9 +703,10 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
 
                     syncTasks[1] = () -> {
                         Iterator<CompoundTag> iterator = entities.iterator();
+                        Map<BlockPos, LeashFenceKnotEntity> leashRef = new HashMap<>();
                         while (iterator.hasNext()) {
                             final CompoundTag nativeTag = iterator.next();
-                            final Map<String, Tag> entityTagMap = nativeTag.getValue();
+                            final Map<String, Tag> entityTagMap = new HashMap<>(nativeTag.getValue());
                             final StringTag idTag = (StringTag) entityTagMap.get("Id");
                             final ListTag posTag = (ListTag) entityTagMap.get("Pos");
                             final ListTag rotTag = (ListTag) entityTagMap.get("Rotation");
@@ -691,16 +725,39 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                             if (type != null) {
                                 Entity entity = type.create(nmsWorld);
                                 if (entity != null) {
-                                    final net.minecraft.nbt.CompoundTag tag = (net.minecraft.nbt.CompoundTag) adapter.fromNative(
+                                    final net.minecraft.nbt.CompoundTag tag = (net.minecraft.nbt.CompoundTag) NBTConverter.fromNative(
                                             nativeTag);
+                                    if (entityTagMap.containsKey("Leash")) {
+                                        var leashTag = (net.minecraft.nbt.CompoundTag) NBTConverter.fromNative(
+                                                entityTagMap.get("Leash"));
+                                        final LeashFenceKnotEntity leashEntity = leashRef.get(NbtUtils.readBlockPos(leashTag));
+                                        if (leashEntity != null) {
+                                            tag.put("Leash", NbtUtils.writeBlockPos(leashEntity.getPos()));
+                                        }
+                                    }
                                     for (final String name : Constants.NO_COPY_ENTITY_NBT_FIELDS) {
                                         tag.remove(name);
                                     }
                                     entity.load(tag);
                                     entity.absMoveTo(x, y, z, yaw, pitch);
                                     entity.setUUID(nativeTag.getUUID());
-                                    /*
-                                    if (!nmsWorld.addFreshEntity(entity, CreatureSpawnEvent.SpawnReason.CUSTOM)) {
+
+                                    if (entity instanceof LeashFenceKnotEntity leashFenceKnotEntity) {
+                                        var leashTag = (net.minecraft.nbt.CompoundTag) NBTConverter.fromNative(
+                                                entityTagMap.get("OldPos"));
+                                        if (leashTag != null) {
+                                            leashRef.put(
+                                                    new BlockPos(
+                                                            leashTag.getInt("X"),
+                                                            leashTag.getInt("Y"),
+                                                            leashTag.getInt("Z")
+                                                    ),
+                                                    leashFenceKnotEntity
+                                            );
+                                        }
+                                    }
+
+                                    if (!nmsWorld.addFreshEntity(entity)) {
                                         LOGGER.warn(
                                                 "Error creating entity of type `{}` in world `{}` at location `{},{},{}`",
                                                 id,
@@ -711,7 +768,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                                         );
                                         // Unsuccessful create should not be saved to history
                                         iterator.remove();
-                                    }*/
+                                    }
                                 }
                             }
                         }
@@ -741,7 +798,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                                     tileEntity = nmsWorld.getBlockEntity(pos);
                                 }
                                 if (tileEntity != null) {
-                                    final net.minecraft.nbt.CompoundTag tag = (net.minecraft.nbt.CompoundTag) adapter.fromNative(
+                                    final net.minecraft.nbt.CompoundTag tag = NBTConverter.fromNative(
                                             nativeTag);
                                     tag.put("x", IntTag.valueOf(x));
                                     tag.put("y", IntTag.valueOf(y));
@@ -862,7 +919,9 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
     }
 
     public synchronized void send(int mask, boolean lighting) {
-        FabricPlatformAdapter.sendChunk(serverLevel, chunkX, chunkZ, lighting);
+        synchronized (sendLock) {
+            FabricPlatformAdapter.sendChunk(serverLevel, chunkX, chunkZ, lighting);
+        }
     }
 
     /**
@@ -893,15 +952,15 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                 lock.acquire();
 
                 final PalettedContainer<BlockState> blocks = section.getStates();
-                final PalettedContainer.Data dataObject = blocks.data;
-                final BitStorage bits = dataObject.storage;
+                final PalettedContainer.Data<BlockState> dataObject = blocks.data;
+                final BitStorage bits = dataObject.storage();
 
                 if (bits instanceof ZeroBitStorage) {
-                    data.setAll(adapter.adapt(blocks.get(0, 0, 0)).getOrdinal()); // get(int) is only public on paper
+                    data.setAll(adapter.adaptToInt(blocks.get(0, 0, 0))); // get(int) is only public on paper
                     return data;
                 }
 
-                final Palette<BlockState> palette = (Palette<BlockState>) dataObject.palette;
+                final Palette<BlockState> palette = dataObject.palette();
 
                 final int bitsPerEntry = bits.getBits();
                 final long[] blockStates = bits.getRaw();
@@ -914,7 +973,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                 } else {
                     // The section's palette is the global block palette.
                     for (int i = 0; i < 4096; i++) {
-                        int paletteVal = (int) data.getAt(i);
+                       int paletteVal = data.getAt(i);
                         int ordinal = adapter.ibdIDToOrdinal(paletteVal);
                         data.setAt(i, ordinal);
                     }
@@ -929,9 +988,9 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                             paletteToOrdinal[i] = ordinal;
                         }
                         for (int i = 0; i < 4096; i++) {
-                            int paletteVal = (int) data.getAt(i);
+                            int paletteVal = data.getAt(i);
                             int val = paletteToOrdinal[paletteVal];
-                            if (val == BlockTypesCache.states.length) {
+                            if (val == Integer.MAX_VALUE) {
                                 val = ordinal(palette.valueFor(i), adapter);
                                 paletteToOrdinal[i] = val;
                             }
@@ -943,7 +1002,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                     }
                 } finally {
                     for (int i = 0; i < num_palette; i++) {
-                        paletteToOrdinal[i] = Character.MAX_VALUE;
+                        paletteToOrdinal[i] = Integer.MAX_VALUE;
                     }
                 }
                 return data;
@@ -1103,8 +1162,8 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                 LevelChunkSection existing = getSections(true)[layer];
                 final PalettedContainer<BlockState> blocksExisting = existing.getStates();
 
-                final PalettedContainer.Data dataObject = blocksExisting.data;
-                final Palette<BlockState> palette = (Palette<BlockState>) dataObject.palette;
+                final PalettedContainer.Data<BlockState> dataObject = blocksExisting.data;
+                final Palette<BlockState> palette = dataObject.palette;
                 int paletteSize;
 
                 if (palette instanceof LinearPalette || palette instanceof HashMapPalette) {

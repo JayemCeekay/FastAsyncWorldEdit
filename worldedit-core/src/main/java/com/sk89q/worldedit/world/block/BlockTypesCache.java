@@ -309,6 +309,9 @@ public class BlockTypesCache {
         tickList.addAll(Collections.nCopies(states.size() - oldsize,
                 existing.getMaterial().isTicksRandomly() || existing.getMaterial().isLiquid()));
         // register states
+        if (!typeName.contains(":")) {
+            typeName = "undefined:" + typeName.toLowerCase();
+        }
         BlockType.REGISTRY.register(typeName, existing);
         String nameSpace = typeName.substring(0, typeName.indexOf(':'));
         $NAMESPACES.add(nameSpace);

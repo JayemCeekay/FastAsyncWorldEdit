@@ -27,10 +27,10 @@ import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockType;
 import com.sk89q.worldedit.world.registry.BlockMaterial;
 import com.sk89q.worldedit.world.registry.BundledBlockRegistry;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -54,7 +54,7 @@ public class FabricBlockRegistry extends BundledBlockRegistry {
         Block block = FabricAdapter.adapt(blockType);
         return materialMap.computeIfAbsent(
             block.defaultBlockState(),
-            m -> new FabricBlockMaterial(m.getMaterial(), m, super.getMaterial(blockType))
+            m -> new FabricBlockMaterial(block, m.getMaterial(), m, super.getMaterial(blockType))
         );
     }
 
@@ -66,7 +66,7 @@ public class FabricBlockRegistry extends BundledBlockRegistry {
                 .defaultBlockState()
                 .getProperties();
         for (net.minecraft.world.level.block.state.properties.Property<?> key : propertyKeys) {
-            map.put(key.getName(), FabricAdapter.adaptProperty(key));
+            map.put(key.getName(), FabricTransmogrifier.transmogToWorldEditProperty(key));
         }
         return map;
     }
@@ -81,17 +81,9 @@ public class FabricBlockRegistry extends BundledBlockRegistry {
     @Override
     public Collection<String> values() {
         ArrayList<String> list = new ArrayList<>();
-        /*
-        for(ResourceLocation location : net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKeys()) {
-            Block block = ForgeRegistries.BLOCKS.getValue(location);
-            list.add(block.defaultBlockState().toString().substring(block.defaultBlockState().toString().indexOf(
-                    "{")+1).replace("}", ""));
 
-        }*/
-        for(net.minecraft.world.level.block.state.BlockState block : Block.BLOCK_STATE_REGISTRY) {
-            list.add(block.getBlock().defaultBlockState().toString().substring(block.getBlock().defaultBlockState().toString().indexOf(
-                    "{")+1).replace("}", ""));
-
+        for (net.minecraft.world.level.block.state.BlockState block : Block.BLOCK_STATE_REGISTRY) {
+            list.add(block.getBlock().defaultBlockState().toString().substring(block.getBlock().defaultBlockState().toString().indexOf("{") + 1).replace("}", ""));
         }
         LinkedHashMap<String, String> blockMap = list.stream().collect(
                 Collectors.toMap(
@@ -104,24 +96,7 @@ public class FabricBlockRegistry extends BundledBlockRegistry {
                 )
         );
 
-
-        try {
-            long position = 0;
-            FileWriter myWriter = new FileWriter("ORDER.txt");
-            for(String line : list) {
-                if(blockMap.containsValue(line)) {
-                    myWriter.write(line + "\t\t\t\t\t\t" + position + "\n");
-                }
-                position +=1;
-            }
-            myWriter.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
         return blockMap.values();
     }
-
-
     //FAWE end
 }

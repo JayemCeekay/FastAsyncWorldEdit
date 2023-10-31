@@ -32,16 +32,16 @@ import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 
-import java.lang.ref.WeakReference;
 import javax.annotation.Nullable;
+import java.lang.ref.WeakReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-class FabricEntity implements Entity {
+public class FabricEntity implements Entity {
 
     private final WeakReference<net.minecraft.world.entity.Entity> entityRef;
 
-    FabricEntity(net.minecraft.world.entity.Entity entity) {
+    public FabricEntity(net.minecraft.world.entity.Entity entity) {
         checkNotNull(entity);
         this.entityRef = new WeakReference<>(entity);
     }
@@ -55,7 +55,7 @@ class FabricEntity implements Entity {
         ResourceLocation id = Registry.ENTITY_TYPE.getKey(entity.getType());
         CompoundTag tag = new CompoundTag();
         entity.saveWithoutId(tag);
-        return new BaseEntity(EntityTypes.get(id.toString()), NBTConverter.fromNative(tag));
+        return new BaseEntity(EntityTypes.get(id.toString()), (com.sk89q.jnbt.CompoundTag) NBTConverter.toNative(tag));
     }
 
     @Override

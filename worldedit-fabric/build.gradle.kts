@@ -33,7 +33,7 @@ configure<LoomGradleExtensionAPI> {
 
 val minecraftVersion = "1.19.2"
 val yarnMappings = "1.19.2+build.28"
-val loaderVersion = "0.14.11"
+val loaderVersion = "0.14.19"
 
 configurations.all {
     resolutionStrategy {
@@ -58,6 +58,16 @@ repositories {
     }
     maven { url = uri("https://maven.nucleoid.xyz/") }
     maven { url = uri("https://jitpack.io") }
+    exclusiveContent {
+        forRepository {
+            maven {
+                url = uri("https://api.modrinth.com/maven")
+            }
+        }
+        filter {
+            includeGroup("maven.modrinth")
+        }
+    }
 }
 
 dependencies {
@@ -79,6 +89,7 @@ dependencies {
     implementation(libs.zstd) { isTransitive = false }
     implementation("dev.notmyfault.serverlib:ServerLib")
     "modImplementation"("xyz.nucleoid:stimuli:0.4.1+1.19.1")
+    "modImplementation"("maven.modrinth:starlight:1.1.1+1.19")
 
     // [1] declare fabric-api dependency...
     "modImplementation"("net.fabricmc.fabric-api:fabric-api:0.76.0+1.19.2")
@@ -207,6 +218,7 @@ tasks.register<RemapJarTask>("remapShadowJar") {
     dependsOn(shadowJar)
     input.set(shadowJar.archiveFile)
     archiveFileName.set(shadowJar.archiveFileName.get().replace(Regex("-dev\\.jar$"), ".jar"))
+    archiveFileName.set("${rootProject.name}-Fabric-${project.version}.${archiveExtension.getOrElse("jar")}")
     addNestedDependencies.set(true)
     //remapAccessWidener.set(true)
 }

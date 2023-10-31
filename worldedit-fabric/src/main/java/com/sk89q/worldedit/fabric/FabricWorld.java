@@ -31,6 +31,7 @@ import com.google.common.util.concurrent.Futures;
 import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.jnbt.NBTConstants;
 import com.sk89q.worldedit.EditSession;
+import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.WorldEditException;
 import com.sk89q.worldedit.blocks.BaseItem;
 import com.sk89q.worldedit.blocks.BaseItemStack;
@@ -38,6 +39,7 @@ import com.sk89q.worldedit.entity.BaseEntity;
 import com.sk89q.worldedit.entity.Entity;
 import com.sk89q.worldedit.entity.Player;
 import com.sk89q.worldedit.extent.Extent;
+import com.sk89q.worldedit.fabric.fawe.FabricFaweAdapter;
 import com.sk89q.worldedit.fabric.fawe.FabricFaweWorldNativeAccess;
 import com.sk89q.worldedit.fabric.internal.ExtendedMinecraftServer;
 import com.sk89q.worldedit.fabric.internal.FabricWorldNativeAccess;
@@ -59,6 +61,7 @@ import com.sk89q.worldedit.util.SideEffect;
 import com.sk89q.worldedit.util.SideEffectSet;
 import com.sk89q.worldedit.util.TreeGenerator.TreeType;
 import com.sk89q.worldedit.util.io.file.SafeFiles;
+import com.sk89q.worldedit.util.nbt.CompoundBinaryTag;
 import com.sk89q.worldedit.world.AbstractWorld;
 import com.sk89q.worldedit.world.RegenOptions;
 import com.sk89q.worldedit.world.biome.BiomeType;
@@ -74,11 +77,14 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.data.worldgen.features.EndFeatures;
 import net.minecraft.data.worldgen.features.TreeFeatures;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Clearable;
 import net.minecraft.world.InteractionHand;
@@ -121,6 +127,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -154,6 +161,8 @@ public class FabricWorld extends AbstractWorld {
         this.worldNativeAccess = new FabricFaweWorldNativeAccess(FabricWorldEdit.inst.getFaweAdapter(), worldRef);
     }
 
+
+
     /**
      * Get the underlying handle to the world.
      *
@@ -177,7 +186,7 @@ public class FabricWorld extends AbstractWorld {
 
     @Override
     public String getNameUnsafe() {
-        return getWorld().dimension().location().toString();
+        return getWorld().dimension().location().getPath();
     }
 
     @Override
@@ -187,12 +196,11 @@ public class FabricWorld extends AbstractWorld {
 
     @Override
     public void refreshChunk(final int chunkX, final int chunkZ) {
-        getWorld().getChunkSource().updateChunkForced(new ChunkPos(chunkX, chunkZ), true);
+        getWorld().getChunkSource().chunkMap.getVisibleChunkIfPresent(ChunkPos.asLong(chunkX, chunkZ));
     }
 
     @Override
     public IChunkGet get(final int x, final int z) {
-        System.out.println(FabricWorldEdit.inst.getFaweAdapter().get(getWorld(), x, z).getClass().getName());
         return FabricWorldEdit.inst.getFaweAdapter().get(getWorld(), x, z);
     }
 
@@ -256,8 +264,8 @@ public class FabricWorld extends AbstractWorld {
 
     @Override
     public boolean setTile(final int x, final int y, final int z, final CompoundTag tile) throws WorldEditException {
-        /*TODO*/
-        return false;
+        setBlock(x, y, z, getBlock(x, y, z).toBaseBlock(tile));
+        return true;
     }
 
     @Override
@@ -278,9 +286,12 @@ public class FabricWorld extends AbstractWorld {
         return true;
     }
 
+
+
     @Override
     public void flush() {
         /*TODO*/
+
         if (worldNativeAccess != null) {
             worldNativeAccess.flush();
         }
@@ -441,7 +452,7 @@ public class FabricWorld extends AbstractWorld {
             BlockStateHolder<?> state = FabricAdapter.adapt(chunk.getBlockState(pos));
             BlockEntity blockEntity = chunk.getBlockEntity(pos);
             if (blockEntity != null) {
-                state = state.toBaseBlock(NBTConverter.fromNative(blockEntity.saveWithId()));
+                state = state.toBaseBlock(NBTConverter.toNative(blockEntity.saveWithId()));
             }
             extent.setBlock(vec, state.toBaseBlock());
 
@@ -608,25 +619,33 @@ public class FabricWorld extends AbstractWorld {
         net.minecraft.world.level.block.state.BlockState mcState = getWorld()
                 .getChunk(position.getBlockX() >> 4, position.getBlockZ() >> 4)
                 .getBlockState(FabricAdapter.toBlockPos(position));
-        BlockState matchingBlock = FabricWorldEdit.inst.getFaweAdapter().adapt(mcState);
+        BlockState matchingBlock = FabricAdapter.adapt(mcState);
         if (matchingBlock != null) {
             return matchingBlock;
         }
 
-        return FabricWorldEdit.inst.getFaweAdapter().adapt(mcState);
+        return FabricAdapter.adapt(mcState);
     }
 
     @Override
     public BaseBlock getFullBlock(BlockVector3 position) {
-        BlockPos pos = new BlockPos(position.getBlockX(), position.getBlockY(), position.getBlockZ());
-        // Avoid creation by using the CHECK mode -- if it's needed, it'll be re-created anyways
-        BlockEntity tile = ((LevelChunk) getWorld().getChunk(pos)).getBlockEntity(pos, LevelChunk.EntityCreationType.CHECK);
+        FabricFaweAdapter adapter = FabricWorldEdit.inst.getFaweAdapter();
 
-        if (tile != null) {
-            return getBlock(position).toBaseBlock(NBTConverter.fromNative(tile.saveWithId()));
-        } else {
-            return getBlock(position).toBaseBlock();
+        BlockPos pos = new BlockPos(position.getBlockX(), position.getBlockY(), position.getBlockZ());
+
+        BlockState state = getBlock(position);
+
+        // Read the NBT data
+        BlockEntity te = ((LevelChunk) getWorld().getChunk(pos)).getBlockEntity(pos, LevelChunk.EntityCreationType.CHECK);
+
+        if (te != null) {
+            net.minecraft.nbt.CompoundTag tag = te.saveWithId();
+            //FAWE start - BinaryTag
+            return state.toBaseBlock((CompoundBinaryTag) adapter.toNativeBinary(tag));
+            //FAWE end
         }
+
+        return state.toBaseBlock();
     }
 
     @Override
@@ -661,7 +680,7 @@ public class FabricWorld extends AbstractWorld {
         );
         return nmsEntities.stream()
             .map(FabricEntity::new)
-            .collect(ImmutableList.toImmutableList());
+            .collect(Collectors.toList());
     }
 
     @Override
@@ -687,7 +706,7 @@ public class FabricWorld extends AbstractWorld {
         CompoundTag nativeTag = entity.getNbtData();
         net.minecraft.nbt.CompoundTag tag;
         if (nativeTag != null) {
-            tag = NBTConverter.toNative(entity.getNbtData());
+            tag = NBTConverter.fromNative(entity.getNbtData());
             removeUnwantedEntityTagsRecursively(tag);
         } else {
             tag = new net.minecraft.nbt.CompoundTag();

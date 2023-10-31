@@ -1,9 +1,11 @@
 package com.fastasyncworldedit.core.util.task;
 
 import com.fastasyncworldedit.core.Fawe;
+import com.fastasyncworldedit.core.configuration.Settings;
 
 import java.io.Closeable;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -45,9 +47,6 @@ public class AsyncNotifyQueue implements Closeable {
                             return task.call();
                         } catch (Throwable e) {
                             handler.uncaughtException(Thread.currentThread(), e);
-                            if (self[0] != null) {
-                                self[0].cancel(true);
-                            }
                         }
                     }
                 } finally {

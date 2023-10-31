@@ -31,6 +31,7 @@ import com.sk89q.worldedit.extension.platform.Capability;
 import com.sk89q.worldedit.extension.platform.MultiUserPlatform;
 import com.sk89q.worldedit.extension.platform.Preference;
 import com.sk89q.worldedit.extension.platform.Watchdog;
+import com.sk89q.worldedit.fabric.fawe.FabricStarlightRelighterFactory;
 import com.sk89q.worldedit.fabric.fawe.NMSRelighterFactory;
 import com.sk89q.worldedit.fabric.internal.ExtendedChunk;
 import com.sk89q.worldedit.util.SideEffect;
@@ -50,6 +51,7 @@ import net.minecraft.world.level.storage.ServerLevelData;
 import org.enginehub.piston.CommandManager;
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -59,23 +61,22 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import javax.annotation.Nullable;
 
 class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
 
     private final FabricWorldEdit mod;
-    private final FabricDataFixer dataFixer;
+    private final FabricDataConverters dataFixer;
     private final Lifecycled<Optional<Watchdog>> watchdog;
     private boolean hookingEvents = false;
 
     FabricPlatform(FabricWorldEdit mod) {
         this.mod = mod;
-        this.dataFixer = new FabricDataFixer(getDataVersion());
+        this.dataFixer = new FabricDataConverters(getDataVersion());
 
         this.watchdog = FabricWorldEdit.LIFECYCLED_SERVER.map(
-            server -> server instanceof DedicatedServer
-                ? Optional.of((Watchdog) server)
-                : Optional.empty()
+                server -> server instanceof DedicatedServer
+                        ? Optional.of((Watchdog) server)
+                        : Optional.empty()
         );
     }
 
@@ -112,7 +113,8 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
 
     @Override
     public int schedule(long delay, long period, Runnable task) {
-        return -1;
+
+        return FabricWorldEdit.inst.getTaskManager().repeat(task, (int) period);
     }
 
     @Override
@@ -138,7 +140,7 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
             return player;
         } else {
             ServerPlayer entity = FabricWorldEdit.server
-                .getPlayerList().getPlayerByName(player.getName());
+                    .getPlayerList().getPlayerByName(player.getName());
             return entity != null ? new FabricPlayer(entity) : null;
         }
     }
@@ -202,35 +204,41 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
     }
 
     private static final Set<SideEffect> SUPPORTED_SIDE_EFFECTS_NO_MIXIN = Sets.immutableEnumSet(
-        SideEffect.VALIDATION,
-        SideEffect.ENTITY_AI,
-        SideEffect.LIGHTING,
-        SideEffect.NEIGHBORS
+            SideEffect.VALIDATION,
+            SideEffect.ENTITY_AI,
+            SideEffect.LIGHTING,
+            SideEffect.NEIGHBORS
     );
 
     private static final Set<SideEffect> SUPPORTED_SIDE_EFFECTS = Sets.immutableEnumSet(
-        Iterables.concat(SUPPORTED_SIDE_EFFECTS_NO_MIXIN, Collections.singleton(SideEffect.UPDATE))
+            Iterables.concat(SUPPORTED_SIDE_EFFECTS_NO_MIXIN, Collections.singleton(SideEffect.UPDATE))
     );
 
     @Override
     public Set<SideEffect> getSupportedSideEffects() {
         return ExtendedChunk.class.isAssignableFrom(LevelChunk.class)
-            ? SUPPORTED_SIDE_EFFECTS
-            : SUPPORTED_SIDE_EFFECTS_NO_MIXIN;
+                ? SUPPORTED_SIDE_EFFECTS
+                : SUPPORTED_SIDE_EFFECTS_NO_MIXIN;
     }
 
     @NotNull
     @Override
     public RelighterFactory getRelighterFactory() {
-        /*TODO*/
+        try {
+            Class.forName("ca.spottedleaf.starlight.common.light.StarLightEngine");
+            return new FabricStarlightRelighterFactory();
+        } catch (ThreadDeath td) {
+            throw td;
+        } catch (Throwable ignored) {
 
+        }
         return new NMSRelighterFactory();
     }
 
     @Override
     public int versionMinY() {
 
-        return -64;
+        return -768;
     }
 
     @Override
@@ -250,6 +258,7 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
         }
         return users;
     }
+
     @org.jetbrains.annotations.Nullable
     @Override
     public IBatchProcessor getPlatformProcessor(final boolean fastMode) {

@@ -31,6 +31,7 @@ import com.fastasyncworldedit.core.queue.implementation.blocks.DataArray;
 import com.sk89q.worldedit.math.BlockVector2;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.World;
+import com.sk89q.worldedit.world.block.BlockTypesCache;
 import com.sk89q.worldedit.world.storage.ChunkStore;
 
 import javax.annotation.Nonnull;
@@ -86,7 +87,6 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
     }
 
     //FAWE start - allow region to be created without clamping Y
-
     /**
      * Construct a new instance of this cuboid using two corners of the cuboid.
      *
@@ -170,7 +170,6 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
     }
 
     //FAWE start - allow region to be created without clamping Y
-
     /**
      * Sets the cached min and max x/y/z
      */
@@ -825,63 +824,45 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
             boolean trimX = lowerX != 0 || upperX != 15;
             boolean trimZ = lowerZ != 0 || upperZ != 15;
 
+            if (!(trimX || trimZ)) {
+                return set;
+            }
+
             for (int layer = get.getMinSectionPosition(); layer < get.getMaxSectionPosition(); layer++) {
                 if (!set.hasSection(layer)) {
                     continue;
                 }
                 DataArray arr = Objects.requireNonNull(set.loadIfPresent(layer)); // This shouldn't be null if above is true
-                if (noBlacklistTrimXZ(lowerX, upperX, lowerZ, upperZ, upperZi, lowerZi, trimX, trimZ, arr)) {
-                    continue;
+                int indexY = 0;
+                for (int y = 0; y < 16; y++, indexY += 256) { // For each y layer within a chunk section
+                    int index;
+                    if (trimZ) {
+                        index = indexY;
+                        for (int z = 0; z < lowerZ; z++) {
+                            // null the z values
+                            arr.setRange(index, index += 16, BlockTypesCache.ReservedIDs.__RESERVED__);
+                        }
+                        index = indexY + upperZi;
+                        for (int z = upperZ + 1; z < 16; z++) {
+                            // null the z values
+                            arr.setRange(index, index += 16, BlockTypesCache.ReservedIDs.__RESERVED__);
+                        }
+                    }
+                    if (trimX) {
+                        index = indexY + lowerZi; // Skip blocks already removed by trimZ
+                        for (int z = lowerZ; z <= upperZ; z++, index += 16) {
+                            // null the x values
+                            arr.setRange(index, index + lowerX, BlockTypesCache.ReservedIDs.__RESERVED__);
+                            arr.setRange(index + upperX + 1, index + 16, BlockTypesCache.ReservedIDs.__RESERVED__);
+                        }
+                    }
                 }
                 set.setBlocks(layer, arr);
             }
-
             trimNBT(set, this::contains);
             return set;
         }
         return null;
-    }
-
-    private boolean noBlacklistTrimXZ(
-            int lowerX,
-            int upperX,
-            int lowerZ,
-            int upperZ,
-            int upperZi,
-            int lowerZi,
-            boolean trimX,
-            boolean trimZ,
-            DataArray data
-    ) {
-        if (!(trimX || trimZ)) {
-            return true;
-        }
-        int indexY = 0;
-        for (int y = 0; y < 16; y++, indexY += 256) { // For each y layer within a chunk section
-            int index;
-            if (trimZ) {
-                index = indexY;
-                for (int z = 0; z < lowerZ; z++) {
-                    // null the z values
-                    data.setRange(index, index += 16, 0);
-                }
-                index = indexY + upperZi;
-                for (int z = upperZ + 1; z < 16; z++) {
-                    // null the z values
-                    data.setRange(index, index += 16, 0);
-                }
-            }
-            if (trimX) {
-                index = indexY + lowerZi; // Skip blocks already removed by trimZ
-                for (int z = lowerZ; z <= upperZ; z++, index += 16) {
-                    // null the x values
-                    data.setRange(index, index + lowerX, 0);
-                    // null the x values
-                    data.setRange(index + upperX + 1, index + 16, 0);
-                }
-            }
-        }
-        return false;
     }
 
     @Override
@@ -924,9 +905,27 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
                 if (!set.hasSection(layer)) {
                     continue;
                 }
-                DataArray arr = set.loadIfPresent(layer); // This shouldn't be null if above is true
-                if (blacklistedTrimXZ(lowerX, upperX, lowerZ, upperZ, lowerZi, trimX, trimZ, arr)) {
+                DataArray arr = Objects.requireNonNull(set.loadIfPresent(layer)); // This shouldn't be null if above is true
+                if (!(trimX || trimZ)) {
                     continue;
+                }
+                int indexY = 0;
+                for (int y = 0; y < 16; y++, indexY += 256) { // For each y layer within a chunk section
+                    int index;
+                    if (trimZ) {
+                        index = indexY;
+                        for (int z = lowerZ; z <= upperZ; z++) {
+                            // null the z values
+                            arr.setRange(index, index += 16, BlockTypesCache.ReservedIDs.__RESERVED__);
+                        }
+                    }
+                    if (trimX) {
+                        index = indexY + lowerZi; // Skip blocks already removed by trimZ
+                        for (int z = lowerZ; z <= upperZ; z++, index += 16) {
+                            // null the x values
+                            arr.setRange(index + lowerX, index + upperX + 1, BlockTypesCache.ReservedIDs.__RESERVED__);
+                        }
+                    }
                 }
                 set.setBlocks(layer, arr);
             }
@@ -934,40 +933,6 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
             return set;
         }
         return set;
-    }
-
-    private boolean blacklistedTrimXZ(
-            int lowerX,
-            int upperX,
-            int lowerZ,
-            int upperZ,
-            int lowerZi,
-            boolean trimX,
-            boolean trimZ,
-            DataArray data
-    ) {
-        if (!(trimX || trimZ)) {
-            return true;
-        }
-        int indexY = 0;
-        for (int y = 0; y < 16; y++, indexY += 256) { // For each y layer within a chunk section
-            int index;
-            if (trimZ) {
-                index = indexY;
-                for (int z = lowerZ; z <= upperZ; z++) {
-                    // null the z values
-                    data.setRange(index, index += 16, 0);
-                }
-            }
-            if (trimX) {
-                index = indexY + lowerZi; // Skip blocks already removed by trimZ
-                for (int z = lowerZ; z <= upperZ; z++, index += 16) {
-                    // null the x values
-                    data.setRange(index + lowerX, index + upperX + 1, 0);
-                }
-            }
-        }
-        return false;
     }
     //FAWE end
 

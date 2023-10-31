@@ -73,7 +73,7 @@ fun Project.applyCommonJavaConfiguration(sourcesJar: Boolean, banSlf4j: Boolean 
 
     configure<JavaPluginExtension> {
         disableAutoTargetJvm()
-        withJavadocJar()
+       // withJavadocJar()
         if (sourcesJar) {
             withSourcesJar()
         }

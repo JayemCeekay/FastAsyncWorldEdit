@@ -22,3 +22,11 @@ accessible class net/minecraft/world/level/chunk/PalettedContainer$Configuration
 accessible field net/minecraft/util/ThreadingDetector lock Ljava/util/concurrent/Semaphore;
 mutable field net/minecraft/util/ThreadingDetector lock Ljava/util/concurrent/Semaphore;
 accessible field net/minecraft/world/level/block/entity/BlockEntity remove Z
+accessible field net/minecraft/server/level/ThreadedLevelLightEngine taskMailbox Lnet/minecraft/util/thread/ProcessorMailbox;
+accessible field net/minecraft/server/level/ServerChunkCache mainThreadProcessor Lnet/minecraft/server/level/ServerChunkCache$MainThreadExecutor;
+accessible method net/minecraft/server/level/ChunkMap getUpdatingChunkIfPresent (J)Lnet/minecraft/server/level/ChunkHolder;
+accessible method net/minecraft/server/level/ChunkHolder broadcast (Lnet/minecraft/network/protocol/Packet;Z)V
+accessible field net/minecraft/server/level/ServerLevel entityManager Lnet/minecraft/world/level/entity/PersistentEntitySectionManager;
+accessible field net/minecraft/world/level/chunk/PalettedContainer$Strategy GLOBAL_PALETTE_FACTORY Lnet/minecraft/world/level/chunk/Palette$Factory;
+accessible method net/minecraft/world/level/chunk/PalettedContainer createOrReuseData (Lnet/minecraft/world/level/chunk/PalettedContainer$Data;I)Lnet/minecraft/world/level/chunk/PalettedContainer$Data;
+accessible method net/minecraft/world/level/chunk/ChunkStatus isLighted (Lnet/minecraft/world/level/chunk/ChunkStatus;Lnet/minecraft/world/level/chunk/ChunkAccess;)Z

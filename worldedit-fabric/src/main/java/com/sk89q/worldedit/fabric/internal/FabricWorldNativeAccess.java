@@ -105,14 +105,7 @@ public class FabricWorldNativeAccess implements WorldNativeAccess<LevelChunk, Bl
 
     @Override
     public boolean updateTileEntity(BlockPos position, final CompoundBinaryTag tag) {
-        CompoundTag nativeTag = NBTConverter.toNative(tag);
-        BlockEntity tileEntity = getWorld().getChunkAt(position).getBlockEntity(position);
-        if (tileEntity == null) {
-            return false;
-        }
-        tileEntity.load(nativeTag);
-        tileEntity.setChanged();
-        return true;
+      return false;
     }
 
     @Override
@@ -140,12 +133,6 @@ public class FabricWorldNativeAccess implements WorldNativeAccess<LevelChunk, Bl
         if (newState.hasAnalogOutputSignal()) {
             getWorld().updateNeighbourForOutputSignal(pos, newState.getBlock());
         }
-    }
-
-
-    public void updateBlock(BlockPos pos, BlockState oldState, BlockState newState) {
-        Level world = getWorld();
-        newState.onPlace(world, pos, oldState, false);
     }
 
     @Override

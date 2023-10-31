@@ -47,8 +47,7 @@ public class RichPatternParser extends FaweParser<Pattern> {
     public Pattern parseFromInput(String input, ParserContext context) throws InputParseException {
         if (input.isEmpty()) {
             throw new SuggestInputParseException(
-                    "No input provided",
-                    "",
+                    Caption.of("fawe.error.no-input-provided"),
                     () -> Stream
                             .concat(Stream.of("#", ",", "&"), BlockTypes.getNameSpaces().stream().map(n -> n + ":"))
                             .collect(Collectors.toList())
@@ -88,7 +87,6 @@ public class RichPatternParser extends FaweParser<Pattern> {
                                                                 "https://intellectualsites.github.io/fastasyncworldedit-documentation/patterns/patterns"
                                                         ))
                                 )),
-                                full,
                                 () -> {
                                     if (full.length() == 1) {
                                         return new ArrayList<>(worldEdit.getPatternFactory().getSuggestions(""));
@@ -119,7 +117,7 @@ public class RichPatternParser extends FaweParser<Pattern> {
                                     if (addBrackets) {
                                         value += "[";
                                     }
-                                    value += StringMan.join(entry.getValue(), " ");
+                                    value += StringMan.join(entry.getValue(), "][");
                                     if (addBrackets) {
                                         value += "]";
                                     }

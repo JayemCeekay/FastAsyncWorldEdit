@@ -7,6 +7,7 @@ import javax.annotation.Nonnull;
 
 public class FabricTaskManager extends TaskManager {
 
+    public static FabricTickListener tickListener = new FabricTickListener();
 
     private final FabricWorldEdit mod;
 
@@ -17,34 +18,37 @@ public class FabricTaskManager extends TaskManager {
 
     @Override
     public int repeat(@NotNull final Runnable runnable, final int interval) {
-        FabricTickListener.tasks.add(new FabricTickListener.Task(FabricTickListener.tasks.size(), FabricWorldEdit.server.getTickCount(),
+        tickListener.addTask(new FabricTickListener.Task(tickListener.getTasksQueue().size(),
+                FabricWorldEdit.server.getTickCount()+1,
                 runnable, interval, false
                 , true
         ));
-        return FabricTickListener.tasks.size();
+        return tickListener.getTasksQueue().size();
     }
 
     @Override
     public int repeatAsync(@Nonnull final Runnable runnable, final int interval) {
-        FabricTickListener.tasks.add(new FabricTickListener.Task(FabricTickListener.tasks.size(), FabricWorldEdit.server.getTickCount(),
+        tickListener.addTask(new FabricTickListener.Task(tickListener.getTasksQueue().size(),
+                FabricWorldEdit.server.getTickCount()+1,
                 runnable, interval, true
                 , true
         ));
-        return FabricTickListener.tasks.size();
+        return tickListener.getTasksQueue().size();
     }
 
     @Override
     public void async(@Nonnull final Runnable runnable) {
-        FabricTickListener.tasks.add(new FabricTickListener.Task(FabricTickListener.tasks.size(), FabricWorldEdit.server.getTickCount(),
-                runnable, 0, false
+        tickListener.addTask(new FabricTickListener.Task(tickListener.getTasksQueue().size(),
+                FabricWorldEdit.server.getTickCount()+1,
+                runnable, 0, true
                 , false
         ));
     }
 
     @Override
     public void task(@Nonnull final Runnable runnable) {
-        FabricTickListener.tasks.add(new FabricTickListener.Task(FabricTickListener.tasks.size(),
-                FabricWorldEdit.server.getTickCount(),
+        tickListener.addTask(new FabricTickListener.Task(tickListener.getTasksQueue().size(),
+                FabricWorldEdit.server.getTickCount()+1,
                 runnable, 0, false
                 , false
         ));
@@ -52,8 +56,8 @@ public class FabricTaskManager extends TaskManager {
 
     @Override
     public void later(@Nonnull final Runnable runnable, final int delay) {
-        FabricTickListener.tasks.add(new FabricTickListener.Task(FabricTickListener.tasks.size(),
-                FabricWorldEdit.server.getTickCount() + delay,
+       tickListener.addTask(new FabricTickListener.Task(tickListener.getTasksQueue().size(),
+                FabricWorldEdit.server.getTickCount() + delay+1,
                 runnable, 0, false
                 , false
         ));
@@ -62,18 +66,22 @@ public class FabricTaskManager extends TaskManager {
 
     @Override
     public void laterAsync(@Nonnull final Runnable runnable, final int delay) {
-        FabricTickListener.tasks.add(new FabricTickListener.Task(FabricTickListener.tasks.size(),
-                FabricWorldEdit.server.getTickCount() + delay,
+        tickListener.addTask(new FabricTickListener.Task(tickListener.getTasksQueue().size(),
+                FabricWorldEdit.server.getTickCount() + delay+1,
                 runnable, 0, true
                 , false
         ));
     }
 
+
     @Override
     public void cancel(final int task) {
         if (task != -1) {
-            FabricTickListener.tasks.remove(FabricTickListener.tasks.stream().filter(t -> t.taskId == task).findFirst().orElse(null));
+            tickListener.getTasksQueue().remove(tickListener.getTasksQueue().stream().filter(t -> t.taskId == task).findFirst().orElse(null));
         }
     }
+
+
+
 
 }

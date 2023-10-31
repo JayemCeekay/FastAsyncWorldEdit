@@ -31,6 +31,7 @@ import com.sk89q.worldedit.registry.state.IntegerProperty;
 import com.sk89q.worldedit.registry.state.Property;
 import com.sk89q.worldedit.util.Direction;
 import com.sk89q.worldedit.world.block.BlockType;
+import com.sk89q.worldedit.world.block.BlockTypesCache;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -92,7 +93,7 @@ public class FabricTransmogrifier {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private static BlockState transmogToMinecraftProperties(StateDefinition<Block, BlockState> stateContainer,
+    public static BlockState transmogToMinecraftProperties(StateDefinition<Block, BlockState> stateContainer,
                                                                   BlockState newState, Map<Property<?>, Object> states) {
         for (Map.Entry<Property<?>, Object> state : states.entrySet()) {
             net.minecraft.world.level.block.state.properties.Property property = stateContainer.getProperty(state.getKey().getName());
@@ -121,8 +122,10 @@ public class FabricTransmogrifier {
     }
 
     public static com.sk89q.worldedit.world.block.BlockState transmogToWorldEdit(BlockState blockState) {
-        BlockType blockType = FabricAdapter.adapt(blockState.getBlock());
-        return blockType.getState(transmogToWorldEditProperties(blockType, blockState.getValues()));
+        return BlockTypesCache.states[com.sk89q.worldedit.world.block.BlockState.get(blockState
+                .toString()
+                .substring(blockState.toString().indexOf("{") + 1)
+                .replace("}", "")).getOrdinal()];
     }
 
     private FabricTransmogrifier() {

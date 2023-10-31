@@ -29,7 +29,7 @@ public abstract class MapChunkUtil<T> {
             fieldZ.setInt(nmsPacket, packet.getChunkZ());
 
             if (fieldHeightMap != null) {
-                Object heightMap = NBTConverter.toNative(packet.getHeightMap());
+                Object heightMap = NBTConverter.fromNative(packet.getHeightMap());
                 fieldHeightMap.set(nmsPacket, heightMap);
             }
 
@@ -38,7 +38,7 @@ public abstract class MapChunkUtil<T> {
             Map<BlockVector3, CompoundTag> tiles = packet.getChunk().getTiles();
             ArrayList<Object> nmsTiles = new ArrayList<>(tiles.size());
             for (Map.Entry<BlockVector3, CompoundTag> entry : tiles.entrySet()) {
-                Object nmsTag = NBTConverter.toNative(entry.getValue());
+                Object nmsTag = NBTConverter.fromNative(entry.getValue());
                 nmsTiles.add(nmsTag);
             }
             fieldBlockEntities.set(nmsPacket, nmsTiles);

@@ -20,6 +20,7 @@
 package com.sk89q.worldedit.fabric;
 
 import com.fastasyncworldedit.core.configuration.Caption;
+import com.fastasyncworldedit.core.configuration.Settings;
 import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.util.StringUtil;
 import com.sk89q.worldedit.blocks.BaseItemStack;
@@ -28,7 +29,6 @@ import com.sk89q.worldedit.extension.platform.AbstractPlayerActor;
 import com.sk89q.worldedit.extent.inventory.BlockBag;
 import com.sk89q.worldedit.fabric.internal.ExtendedPlayerEntity;
 import com.sk89q.worldedit.fabric.internal.NBTConverter;
-import com.sk89q.worldedit.fabric.mixin.AccessorClientboundBlockEntityDataPacket;
 import com.sk89q.worldedit.fabric.net.handler.WECUIPacketHandler;
 import com.sk89q.worldedit.internal.block.BlockStateIdAccess;
 import com.sk89q.worldedit.internal.cui.CUIEvent;
@@ -59,14 +59,13 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.StructureBlockEntity;
 
+import javax.annotation.Nullable;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
-import javax.annotation.Nullable;
 
 public class FabricPlayer extends AbstractPlayerActor {
 
@@ -75,6 +74,12 @@ public class FabricPlayer extends AbstractPlayerActor {
     protected FabricPlayer(ServerPlayer player) {
         this.player = player;
         ThreadSafeCache.getInstance().getOnlineIds().add(getUniqueId());
+        if (player != null && Settings.settings().CLIPBOARD.USE_DISK) {
+            FabricPlayer cached = FabricWorldEdit.inst.getCachedPlayer(player);
+            if (cached == null) {
+                loadClipboardFromDisk();
+            }
+        }
     }
 
     @Override
@@ -238,6 +243,37 @@ public class FabricPlayer extends AbstractPlayerActor {
         }
     }
 
+
+ /*   @Override
+    public <B extends BlockStateHolder<B>> void sendFakeBlock(BlockVector3 pos, B block) {/*
+        World world = getWorld();
+        if (!(world instanceof FabricWorld)) {
+            return;
+        }
+        BlockPos loc = FabricAdapter.toBlockPos(pos);
+        if (block == null) {
+            final ClientboundBlockUpdatePacket packetOut = new ClientboundBlockUpdatePacket(((FabricWorld) world).getWorld(), loc);
+            player.connection.send(packetOut);
+        } else {
+            final ClientboundBlockUpdatePacket packetOut = new ClientboundBlockUpdatePacket(
+                    loc,
+                    FabricAdapter.adapt(block.toImmutableState())
+            );
+            player.connection.send(packetOut);
+            if (block instanceof BaseBlock && block.getBlockType().equals(BlockTypes.STRUCTURE_BLOCK)) {
+                final CompoundBinaryTag nbtData = ((BaseBlock) block).getNbt();
+                if (nbtData != null) {
+                    player.connection.send(AccessorClientboundBlockEntityDataPacket.construct(
+                            new BlockPos(pos.getBlockX(), pos.getBlockY(), pos.getBlockZ()),
+                            BlockEntityType.STRUCTURE_BLOCK,
+                            NBTConverter.fromNative(nbtData))
+                    );
+                }
+            }
+        }
+    }
+*/
+
     @Override
     public <B extends BlockStateHolder<B>> void sendFakeBlock(BlockVector3 pos, B block) {
         World world = getWorld();
@@ -270,7 +306,7 @@ public class FabricPlayer extends AbstractPlayerActor {
                                             new BlockPos(pos.getBlockX(), pos.getBlockY(), pos.getBlockZ()),
                                             Blocks.STRUCTURE_BLOCK.defaultBlockState()
                                     ),
-                                    __ -> (net.minecraft.nbt.CompoundTag) NBTConverter.toNative(nbtData)
+                                    __ -> NBTConverter.fromNative(nbtData)
                             )
                     );
                 }

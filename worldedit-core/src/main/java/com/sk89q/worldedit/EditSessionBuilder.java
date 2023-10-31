@@ -32,6 +32,7 @@ import com.fastasyncworldedit.core.extent.NullExtent;
 import com.fastasyncworldedit.core.extent.SingleRegionExtent;
 import com.fastasyncworldedit.core.extent.SlowExtent;
 import com.fastasyncworldedit.core.extent.StripNBTExtent;
+import com.fastasyncworldedit.core.extent.processor.EntityInBlockRemovingProcessor;
 import com.fastasyncworldedit.core.extent.processor.heightmap.HeightmapProcessor;
 import com.fastasyncworldedit.core.extent.processor.lighting.NullRelighter;
 import com.fastasyncworldedit.core.extent.processor.lighting.RelightMode;
@@ -65,6 +66,7 @@ import com.sk89q.worldedit.internal.util.LogManagerCompat;
 import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.util.Identifiable;
 import com.sk89q.worldedit.util.eventbus.EventBus;
+import com.sk89q.worldedit.util.formatting.text.Component;
 import com.sk89q.worldedit.util.formatting.text.TextComponent;
 import com.sk89q.worldedit.world.World;
 import org.apache.logging.log4j.Logger;
@@ -75,6 +77,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * A builder-style factory for {@link EditSession EditSessions}.
@@ -96,7 +99,6 @@ public final class EditSessionBuilder {
     private RelightMode relightMode;
     private Relighter relighter;
     private Boolean wnaMode;
-    private AbstractChangeSet changeTask;
     private Extent bypassHistory;
     private Extent bypassAll;
     private Extent extent;
@@ -519,7 +521,6 @@ public final class EditSessionBuilder {
                         changeSet = new BlockBagChangeSet(changeSet, blockBag, limit.INVENTORY_MODE == 1);
                     }
                     if (combineStages) {
-                        changeTask = changeSet;
                         this.extent = extent.enableHistory(changeSet);
                     } else {
                         this.extent = new HistoryExtent(extent, changeSet);
@@ -531,33 +532,15 @@ public final class EditSessionBuilder {
             }
             if (allowedRegions == null && Settings.settings().REGION_RESTRICTIONS) {
                 if (actor != null && !actor.hasPermission("fawe.bypass.regions")) {
-                    if (actor instanceof Player) {
-                        Player player = (Player) actor;
+                    if (actor instanceof Player player) {
                         allowedRegions = player.getAllowedRegions();
                     }
                 }
             }
             if (disallowedRegions == null && Settings.settings().REGION_RESTRICTIONS && Settings.settings().REGION_RESTRICTIONS_OPTIONS.ALLOW_BLACKLISTS) {
                 if (actor != null && !actor.hasPermission("fawe.bypass.regions")) {
-                    if (actor instanceof Player) {
-                        Player player = (Player) actor;
+                    if (actor instanceof Player player) {
                         disallowedRegions = player.getDisallowedRegions();
-                    }
-                }
-            }
-            FaweRegionExtent regionExtent = null;
-            if (disallowedRegions != null) { // Always use MultiRegionExtent if we have blacklist regions
-                regionExtent = new MultiRegionExtent(this.extent, this.limit, allowedRegions, disallowedRegions);
-            } else if (allowedRegions == null) {
-                allowedRegions = new Region[]{RegionWrapper.GLOBAL()};
-            } else {
-                if (allowedRegions.length == 0) {
-                    regionExtent = new NullExtent(this.extent, FaweCache.NO_REGION);
-                } else {
-                    if (allowedRegions.length == 1) {
-                        regionExtent = new SingleRegionExtent(this.extent, this.limit, allowedRegions[0]);
-                    } else {
-                        regionExtent = new MultiRegionExtent(this.extent, this.limit, allowedRegions, null);
                     }
                 }
             }
@@ -570,6 +553,11 @@ public final class EditSessionBuilder {
                     queue.addProcessor(new RelightProcessor(relighter));
                 }
                 queue.addProcessor(new HeightmapProcessor(world.getMinY(), world.getMaxY()));
+
+                if (!Settings.settings().EXPERIMENTAL.KEEP_ENTITIES_IN_BLOCKS) {
+                    queue.addProcessor(new EntityInBlockRemovingProcessor());
+                }
+
                 IBatchProcessor platformProcessor = WorldEdit
                         .getInstance()
                         .getPlatformManager()
@@ -589,23 +577,18 @@ public final class EditSessionBuilder {
             } else {
                 relighter = NullRelighter.INSTANCE;
             }
-            if (limit != null && !limit.isUnlimited() && regionExtent != null) {
-                this.extent = new LimitExtent(regionExtent, limit);
-            } else if (limit != null && !limit.isUnlimited()) {
-                this.extent = new LimitExtent(this.extent, limit);
-            } else if (regionExtent != null) {
-                this.extent = regionExtent;
-            }
             if (this.limit != null && this.limit.STRIP_NBT != null && !this.limit.STRIP_NBT.isEmpty()) {
+                StripNBTExtent ext = new StripNBTExtent(this.extent, this.limit.STRIP_NBT);
                 if (placeChunks) {
-                    queue.addProcessor(new StripNBTExtent(this.extent, this.limit.STRIP_NBT));
-                } else {
-                    this.extent = new StripNBTExtent(this.extent, this.limit.STRIP_NBT);
+                    queue.addProcessor(ext);
+                }
+                if (!placeChunks || !combineStages) {
+                    this.extent = ext;
                 }
             }
             if (this.limit != null && !this.limit.isUnlimited()) {
                 Set<String> limitBlocks = new HashSet<>();
-                if ((getActor() == null || getActor().hasPermission("worldedit.anyblock")) && this.limit.UNIVERSAL_DISALLOWED_BLOCKS) {
+                if (getActor() != null && !getActor().hasPermission("worldedit.anyblock") && this.limit.UNIVERSAL_DISALLOWED_BLOCKS) {
                     limitBlocks.addAll(WorldEdit.getInstance().getConfiguration().disallowedBlocks);
                 }
                 if (this.limit.DISALLOWED_BLOCKS != null && !this.limit.DISALLOWED_BLOCKS.isEmpty()) {
@@ -613,12 +596,46 @@ public final class EditSessionBuilder {
                 }
                 Set<PropertyRemap<?>> remaps = this.limit.REMAP_PROPERTIES;
                 if (!limitBlocks.isEmpty() || (remaps != null && !remaps.isEmpty())) {
+                    DisallowedBlocksExtent ext = new DisallowedBlocksExtent(this.extent, limitBlocks, remaps);
                     if (placeChunks) {
-                        queue.addProcessor(new DisallowedBlocksExtent(this.extent, limitBlocks, remaps));
-                    } else {
-                        this.extent = new DisallowedBlocksExtent(this.extent, limitBlocks, remaps);
+                        queue.addProcessor(ext);
+                    }
+                    if (!placeChunks || !combineStages) {
+                        this.extent = ext;
                     }
                 }
+            }
+
+            FaweRegionExtent regionExtent = null;
+            // Always use MultiRegionExtent if we have blacklist regions
+            if (allowedRegions != null && allowedRegions.length == 0) {
+                regionExtent = new NullExtent(this.extent, FaweCache.NO_REGION);
+            } else if (disallowedRegions != null && disallowedRegions.length != 0) {
+                regionExtent = new MultiRegionExtent(this.extent, this.limit, allowedRegions, disallowedRegions);
+            } else if (allowedRegions == null) {
+                allowedRegions = new Region[]{RegionWrapper.GLOBAL()};
+            } else if (allowedRegions.length == 1) {
+                regionExtent = new SingleRegionExtent(this.extent, this.limit, allowedRegions[0]);
+            } else {
+                regionExtent = new MultiRegionExtent(this.extent, this.limit, allowedRegions, null);
+            }
+            if (regionExtent != null) {
+                if (placeChunks) {
+                    queue.addProcessor(regionExtent);
+                }
+                if (!placeChunks || !combineStages) {
+                    this.extent = regionExtent;
+                }
+            }
+            Consumer<Component> onErrorMessage;
+            if (getActor() != null) {
+                onErrorMessage = c -> getActor().print(Caption.of("fawe.error.occurred-continuing", c));
+            } else {
+                onErrorMessage = c -> {
+                };
+            }
+            if (limit != null && !limit.isUnlimited()) {
+                this.extent = new LimitExtent(this.extent, limit, onErrorMessage);
             }
             this.extent = wrapExtent(this.extent, eventBus, event, EditSession.Stage.BEFORE_HISTORY);
         }
@@ -690,7 +707,7 @@ public final class EditSessionBuilder {
      * Get the change set that will be used for history
      */
     public AbstractChangeSet getChangeTask() {
-        return changeTask;
+        return changeSet;
     }
 
     /**

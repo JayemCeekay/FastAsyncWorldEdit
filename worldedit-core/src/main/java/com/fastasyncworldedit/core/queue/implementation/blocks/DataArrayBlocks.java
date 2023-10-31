@@ -117,6 +117,7 @@ public abstract class DataArrayBlocks extends ChunkSectionedChunk implements IBl
     public synchronized IChunkSet reset() {
         for (int i = 0; i < sectionCount; i++) {
             sections[i] = EMPTY;
+            blocks[i] = null;
         }
         return null;
     }

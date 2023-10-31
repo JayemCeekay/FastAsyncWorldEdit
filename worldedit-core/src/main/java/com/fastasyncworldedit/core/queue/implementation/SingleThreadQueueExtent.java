@@ -3,8 +3,8 @@ package com.fastasyncworldedit.core.queue.implementation;
 import com.fastasyncworldedit.core.Fawe;
 import com.fastasyncworldedit.core.configuration.Settings;
 import com.fastasyncworldedit.core.extent.PassthroughExtent;
-import com.fastasyncworldedit.core.extent.filter.block.DataArrayFilterBlock;
 import com.fastasyncworldedit.core.extent.filter.block.ChunkFilterBlock;
+import com.fastasyncworldedit.core.extent.filter.block.DataArrayFilterBlock;
 import com.fastasyncworldedit.core.extent.processor.EmptyBatchProcessor;
 import com.fastasyncworldedit.core.extent.processor.ExtentBatchProcessorHolder;
 import com.fastasyncworldedit.core.extent.processor.ProcessorScope;
@@ -15,6 +15,7 @@ import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.IChunkSet;
 import com.fastasyncworldedit.core.queue.IQueueChunk;
 import com.fastasyncworldedit.core.queue.IQueueExtent;
+import com.fastasyncworldedit.core.queue.implementation.blocks.DataArraySetBlocks;
 import com.fastasyncworldedit.core.queue.implementation.chunk.ChunkHolder;
 import com.fastasyncworldedit.core.queue.implementation.chunk.NullChunk;
 import com.fastasyncworldedit.core.util.MathMan;
@@ -61,8 +62,8 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
     private boolean initialized;
     private Thread currentThread;
     // Last access pointers
-    private IQueueChunk lastChunk;
-    private long lastPair = Long.MAX_VALUE;
+    private volatile IQueueChunk lastChunk;
+    private volatile long lastPair = Long.MAX_VALUE;
     private boolean enabledQueue = true;
     private boolean fastmode = false;
     // Array for lazy avoidance of concurrent modification exceptions and needless overcomplication of code (synchronisation is
@@ -80,17 +81,6 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
     public SingleThreadQueueExtent(int minY, int maxY) {
         this.minY = minY;
         this.maxY = maxY;
-    }
-
-    /**
-     * Safety check to ensure that the thread being used matches the one being initialized on. - Can
-     * be removed later
-     */
-    private void checkThread() {
-        if (Thread.currentThread() != currentThread && currentThread != null) {
-            throw new UnsupportedOperationException(
-                    "This class must be used from a single thread. Use multiple queues for concurrent operations");
-        }
     }
 
     @Override
@@ -153,10 +143,10 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
             return;
         }
         if (!this.chunks.isEmpty()) {
+            getChunkLock.lock();
             for (IChunk chunk : this.chunks.values()) {
                 chunk.recycle();
             }
-            getChunkLock.lock();
             this.chunks.clear();
             getChunkLock.unlock();
         }
@@ -185,7 +175,7 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
             };
         }
         if (set == null) {
-            set = QueueHelper.getIChunkSetIChunkCache();
+            set = (x, z) -> DataArraySetBlocks.newInstance();
         }
         this.cacheGet = get;
         this.cacheSet = set;
@@ -201,7 +191,6 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
             world = WorldWrapper.unwrap(extent);
         }
     }
-
 
     @Override
     public int size() {
@@ -233,9 +222,21 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
      */
     private <V extends Future<V>> V submitUnchecked(IQueueChunk chunk) {
         if (chunk.isEmpty()) {
-            chunk.recycle();
-            Future result = Futures.immediateFuture(null);
-            return (V) result;
+            if (chunk instanceof ChunkHolder<?> holder) {
+                long age = holder.initAge();
+                // Ensure we've given time for the chunk to be used - it was likely used for a reason!
+                if (age < 5) {
+                    try {
+                        Thread.sleep(5 - age);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+            }
+            if (chunk.isEmpty()) {
+                chunk.recycle();
+                Future result = Futures.immediateFuture(null);
+                return (V) result;
+            }
         }
 
         if (Fawe.isMainThread()) {
@@ -275,13 +276,14 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
      * Get a new IChunk from either the pool, or create a new one<br> + Initialize it at the
      * coordinates
      *
-     * @param chunkX
-     * @param chunkZ
+     * @param chunkX X chunk coordinate
+     * @param chunkZ Z chunk coordinate
      * @return IChunk
      */
     private ChunkHolder poolOrCreate(int chunkX, int chunkZ) {
         ChunkHolder next = create(false);
         next.init(this, chunkX, chunkZ);
+        next.setFastMode(isFastMode());
         return next;
     }
 
@@ -309,19 +311,11 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
             // If queueing is enabled AND either of the following
             //  - memory is low & queue size > num threads + 8
             //  - queue size > target size and primary queue has less than num threads submissions
-            if (enabledQueue && ((lowMem && size > Settings.settings().QUEUE.PARALLEL_THREADS + 8) || (size > Settings.settings().QUEUE.TARGET_SIZE && Fawe
-                    .instance()
-                    .getQueueHandler()
-                    .isUnderutilized()))) {
+            int targetSize = lowMem ? Settings.settings().QUEUE.PARALLEL_THREADS + 8 : Settings.settings().QUEUE.TARGET_SIZE;
+            if (enabledQueue && size > targetSize && (lowMem || Fawe.instance().getQueueHandler().isUnderutilized())) {
                 chunk = chunks.removeFirst();
                 final Future future = submitUnchecked(chunk);
                 if (future != null && !future.isDone()) {
-                    final int targetSize;
-                    if (lowMem) {
-                        targetSize = Settings.settings().QUEUE.PARALLEL_THREADS + 8;
-                    } else {
-                        targetSize = Settings.settings().QUEUE.TARGET_SIZE;
-                    }
                     pollSubmissions(targetSize, lowMem);
                     submissions.add(future);
                 }
@@ -457,8 +451,10 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
     @Override
     public synchronized void flush() {
         if (!chunks.isEmpty()) {
+            getChunkLock.lock();
             if (MemUtil.isMemoryLimited()) {
-                for (IQueueChunk chunk : chunks.values()) {
+                while (!chunks.isEmpty()) {
+                    IQueueChunk chunk = chunks.removeFirst();
                     final Future future = submitUnchecked(chunk);
                     if (future != null && !future.isDone()) {
                         pollSubmissions(Settings.settings().QUEUE.PARALLEL_THREADS, true);
@@ -466,15 +462,14 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
                     }
                 }
             } else {
-                for (IQueueChunk chunk : chunks.values()) {
+                while (!chunks.isEmpty()) {
+                    IQueueChunk chunk = chunks.removeFirst();
                     final Future future = submitUnchecked(chunk);
                     if (future != null && !future.isDone()) {
                         submissions.add(future);
                     }
                 }
             }
-            getChunkLock.lock();
-            chunks.clear();
             getChunkLock.unlock();
         }
         pollSubmissions(0, true);

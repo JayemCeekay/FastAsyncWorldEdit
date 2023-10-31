@@ -186,7 +186,8 @@ public final class NullChunk implements IQueueChunk {
     }
 
     @Override
-    public void setCreateCopy(boolean createCopy) {
+    public int setCreateCopy(boolean createCopy) {
+        return -1;
     }
 
     @Override

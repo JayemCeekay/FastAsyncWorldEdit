@@ -258,7 +258,8 @@ public class BlockType implements Keyed, Pattern {
         if (settings.stateOrdinals == null) {
             return Collections.singletonList(getDefaultState());
         }
-        return IntStream.of(settings.stateOrdinals).filter(i -> i != -1).mapToObj(i -> BlockTypesCache.states[i]).collect(
+
+       return IntStream.of(settings.stateOrdinals).filter(i -> i != -1).mapToObj(i -> BlockTypesCache.states[i]).collect(
                 Collectors.toList());
         //FAWE end
     }

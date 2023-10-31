@@ -38,7 +38,7 @@ public class FabricLazyCompoundTag extends LazyCompoundTag {
     @SuppressWarnings("unchecked")
     public Map<String, Tag> getValue() {
         if (compoundTag == null) {
-            compoundTag = (com.sk89q.jnbt.CompoundTag) NBTConverter.fromNative(compoundTagSupplier.get());
+            compoundTag = (com.sk89q.jnbt.CompoundTag) NBTConverter.toNative(compoundTagSupplier.get());
         }
         return compoundTag.getValue();
     }
@@ -102,7 +102,7 @@ public class FabricLazyCompoundTag extends LazyCompoundTag {
                 if (elem instanceof net.minecraft.nbt.CompoundTag compoundTag) {
                     list.add(new FabricLazyCompoundTag(compoundTag));
                 } else {
-                    list.add(NBTConverter.fromNative(elem));
+                    list.add(NBTConverter.toNative(elem));
                 }
             }
             return list;
@@ -114,7 +114,7 @@ public class FabricLazyCompoundTag extends LazyCompoundTag {
     public ListTag getListTag(String key) {
         net.minecraft.nbt.Tag tag = compoundTagSupplier.get().get(key);
         if (tag instanceof net.minecraft.nbt.ListTag) {
-            return (ListTag) NBTConverter.fromNative(tag);
+            return (ListTag) NBTConverter.toNative(tag);
         }
         return new ListTag(StringTag.class, Collections.emptyList());
     }

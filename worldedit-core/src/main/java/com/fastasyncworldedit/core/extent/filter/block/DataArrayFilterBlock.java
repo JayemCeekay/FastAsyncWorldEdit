@@ -252,7 +252,7 @@ public class DataArrayFilterBlock extends ChunkFilterBlock {
 
     @Override
     public void setBlock(BlockState state) {
-        delegate.set(this, state.getOrdinalChar());
+        delegate.set(this, state.getOrdinal());
     }
 
     @Override
@@ -268,7 +268,7 @@ public class DataArrayFilterBlock extends ChunkFilterBlock {
 
     @Override
     public void setFullBlock(BaseBlock block) {
-        delegate.set(this, block.getOrdinalChar());
+        delegate.set(this, block.getOrdinal());
         final CompoundTag nbt = block.getNbtData();
         if (nbt != null) { // TODO optimize check via ImmutableBaseBlock
             set.setTile(x, yy + y, z, nbt);

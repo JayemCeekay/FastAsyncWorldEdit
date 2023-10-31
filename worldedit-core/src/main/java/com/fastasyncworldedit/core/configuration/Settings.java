@@ -520,10 +520,10 @@ public class Settings extends Config {
                 " - A smaller value will reduce memory usage",
                 " - A value too small may break some operations (deform?)",
                 " - Values smaller than the configurated parallel-threads are not accepted",
-                " - It is recommended this option be at least 2x greater than parallel-threads"
+                " - It is recommended this option be at least 4x greater than parallel-threads"
 
         })
-        public int TARGET_SIZE = 64;
+        public int TARGET_SIZE = 8 * Runtime.getRuntime().availableProcessors();
         @Comment({
                 "Force FAWE to start placing chunks regardless of whether an edit is finished processing",
                 " - A larger value will use slightly less CPU time",
@@ -619,7 +619,7 @@ public class Settings extends Config {
                 "[SAFE] Keep entities that are positioned in non-air blocks when editing an area",
                 "Might cause client-side FPS lag in some situations"
         })
-        public boolean KEEP_ENTITIES_IN_BLOCKS = false;
+        public boolean KEEP_ENTITIES_IN_BLOCKS = true;
 
         @Comment({
                 "[SAFE] Attempt to remove entities from the world if they were not present in the expected chunk (default: true)",
@@ -628,7 +628,7 @@ public class Settings extends Config {
                 " - If the entity is in an unloaded or partially loaded chunk, this will fail",
                 " - If an entity cannot be removed, it is possible duplicate entities may be created when using undo and/or redo"
         })
-        public boolean REMOVE_ENTITY_FROM_WORLD_ON_CHUNK_FAIL = true;
+        public boolean REMOVE_ENTITY_FROM_WORLD_ON_CHUNK_FAIL = false;
 
         @Comment({
                 "Other experimental features"

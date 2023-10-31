@@ -35,5 +35,10 @@
     "mixins": [
         "worldedit.mixins.json"
     ],
-    "accessWidener" : "worldedit.accesswidener"
+    "accessWidener" : "worldedit.accesswidener",
+    "custom": {
+        "lithium:options": {
+            "chunk": false
+        }
+    }
 }

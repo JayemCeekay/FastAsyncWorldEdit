@@ -26,18 +26,21 @@ import com.sk89q.worldedit.blocks.BaseItemStack;
 import com.sk89q.worldedit.fabric.internal.FabricTransmogrifier;
 import com.sk89q.worldedit.fabric.internal.NBTConverter;
 import com.sk89q.worldedit.fabric.internal.PropertyAdapter;
-import com.sk89q.worldedit.internal.block.BlockStateIdAccess;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.math.Vector3;
 import com.sk89q.worldedit.registry.state.DirectionalProperty;
 import com.sk89q.worldedit.registry.state.Property;
 import com.sk89q.worldedit.util.Direction;
+import com.sk89q.worldedit.util.concurrency.LazyReference;
+import com.sk89q.worldedit.util.nbt.CompoundBinaryTag;
 import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.biome.BiomeTypes;
+import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockType;
 import com.sk89q.worldedit.world.block.BlockTypes;
+import com.sk89q.worldedit.world.block.BlockTypesCache;
 import com.sk89q.worldedit.world.item.ItemType;
 import com.sk89q.worldedit.world.item.ItemTypes;
 import net.minecraft.core.BlockPos;
@@ -48,27 +51,34 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.Vec3;
 
+import javax.annotation.Nullable;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class FabricAdapter {
 
     protected FabricAdapter() {
+    }
+
+    public static World adapt(Level world) {
+        return new FabricWorld(world.getServer().getLevel(world.dimension()));
     }
 
     public static World adapt(ServerLevel world) {
@@ -180,7 +190,7 @@ public class FabricAdapter {
             );
         }
         if (property instanceof DirectionProperty) {
-            return new DirectionalProperty(property.getName().toUpperCase(), ((DirectionProperty) property).getPossibleValues().stream()
+            return new DirectionalProperty(property.getName(), ((DirectionProperty) property).getPossibleValues().stream()
                     .map(FabricAdapter::adaptEnumFacing)
                     .collect(Collectors.toList()));
         }
@@ -254,11 +264,13 @@ public class FabricAdapter {
         Block mcBlock = adapt(blockState.getBlockType());
         net.minecraft.world.level.block.state.BlockState newState = mcBlock.defaultBlockState();
         Map<Property<?>, Object> states = blockState.getStates();
-        return applyProperties(mcBlock.getStateDefinition(), newState, states);
+        return FabricTransmogrifier.transmogToMinecraftProperties(mcBlock.getStateDefinition(), newState, states);
     }
     public static BlockState adapt(net.minecraft.world.level.block.state.BlockState blockState) {
-        BlockType blockType = adapt(blockState.getBlock());
-        return blockType.getState(adaptProperties(blockType, blockState.getValues()));
+        return BlockTypesCache.states[BlockState.get(blockState
+                .toString()
+                .substring(blockState.toString().indexOf("{") + 1)
+                .replace("}", "")).getOrdinal()];
     }
 
 
@@ -281,7 +293,7 @@ public class FabricAdapter {
     public static ItemStack adapt(BaseItemStack baseItemStack) {
         net.minecraft.nbt.CompoundTag fabricCompound = null;
         if (baseItemStack.getNbtData() != null) {
-            fabricCompound = NBTConverter.toNative(baseItemStack.getNbtData());
+            fabricCompound = NBTConverter.fromNative(baseItemStack.getNbt());
         }
         final ItemStack itemStack = new ItemStack(adapt(baseItemStack.getType()), baseItemStack.getAmount());
         itemStack.setTag(fabricCompound);
@@ -289,7 +301,7 @@ public class FabricAdapter {
     }
 
     public static BaseItemStack adapt(ItemStack itemStack) {
-        CompoundTag tag = NBTConverter.fromNative(itemStack.save(new net.minecraft.nbt.CompoundTag()));
+        CompoundTag tag = NBTConverter.toNative(itemStack.save(new net.minecraft.nbt.CompoundTag()));
         if (tag.getValue().isEmpty()) {
             tag = null;
         } else {
@@ -311,6 +323,6 @@ public class FabricAdapter {
      */
     public static FabricPlayer adaptPlayer(ServerPlayer player) {
         checkNotNull(player);
-        return new FabricPlayer(player);
+        return FabricWorldEdit.inst.wrapPlayer(player);
     }
 }

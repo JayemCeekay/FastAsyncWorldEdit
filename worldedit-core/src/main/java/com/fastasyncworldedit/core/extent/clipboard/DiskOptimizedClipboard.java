@@ -38,6 +38,8 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -45,6 +47,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A clipboard with disk backed storage. (lower memory + loads on crash)
@@ -58,6 +61,7 @@ public class DiskOptimizedClipboard extends LinearClipboard {
     private static final int HEADER_SIZE = 27; // Current header size
     private static final int VERSION_1_HEADER_SIZE = 22; // Header size of "version 1"
     private static final int VERSION_2_HEADER_SIZE = 27; // Header size of "version 2" i.e. when NBT/entities could be saved
+    private static final Map<String, LockHolder> LOCK_HOLDER_CACHE = new ConcurrentHashMap<>();
 
     private final HashMap<IntTriple, CompoundTag> nbtMap;
     private final File file;
@@ -133,7 +137,8 @@ public class DiskOptimizedClipboard extends LinearClipboard {
                 e.printStackTrace();
             }
             this.braf = new RandomAccessFile(file, "rw");
-            long fileLength = (long) (getVolume() << 1) + (long) headerSize;
+            long fileLength = Fawe.platform().getPlatform().equalsIgnoreCase("Fabric-Official") ?
+                    (long) getVolume() * 4L + (long) headerSize : (long) getVolume() * 2L + (long) headerSize;
             braf.setLength(0);
             braf.setLength(fileLength);
             this.nbtBytesRemaining = Integer.MAX_VALUE - (int) fileLength;
@@ -155,7 +160,9 @@ public class DiskOptimizedClipboard extends LinearClipboard {
     /**
      * Load an existing file as a DiskOptimizedClipboard. The file MUST exist and MUST be created as a DiskOptimizedClipboard
      * with data written to it.
+     * @deprecated Will be made private, use {@link DiskOptimizedClipboard#loadFromFile(File)}
      */
+    @Deprecated(forRemoval = true, since = "TODO")
     public DiskOptimizedClipboard(File file) {
         this(file, VERSION);
     }
@@ -166,14 +173,15 @@ public class DiskOptimizedClipboard extends LinearClipboard {
      *
      * @param file            File to read from
      * @param versionOverride An override version to allow loading of older clipboards if required
+     * @deprecated Will be made private, use {@link DiskOptimizedClipboard#loadFromFile(File)}
      */
+    @Deprecated(forRemoval = true, since = "TODO")
     public DiskOptimizedClipboard(File file, int versionOverride) {
         super(readSize(file, versionOverride), BlockVector3.ZERO);
         headerSize = getHeaderSizeOverrideFromVersion(versionOverride);
         nbtMap = new HashMap<>();
         try {
             this.file = file;
-            checkFileLength(file);
             this.braf = new RandomAccessFile(file, "rw");
             braf.setLength(file.length());
             this.nbtBytesRemaining = Integer.MAX_VALUE - (int) file.length();
@@ -199,32 +207,6 @@ public class DiskOptimizedClipboard extends LinearClipboard {
         } catch (Throwable t) {
             close();
             throw t;
-        }
-    }
-
-    private void checkFileLength(File file) throws IOException {
-        long expectedFileSize = headerSize + ((long) getVolume() << 1);
-        if (file.length() > Integer.MAX_VALUE) {
-            if (expectedFileSize >= Integer.MAX_VALUE) {
-                throw new IOException(String.format(
-                        "Cannot load clipboard of file size: %d > 2147483647 bytes (2.147 GiB), " + "volume: %d blocks",
-                        file.length(),
-                        getVolume()
-                ));
-            } else {
-                throw new IOException(String.format(
-                        "Cannot load clipboard of file size > 2147483647 bytes (2.147 GiB). Possible corrupt file? Mismatch" +
-                                " between volume `%d` and file length `%d`!",
-                        file.length(),
-                        getVolume()
-                ));
-            }
-        } else if (expectedFileSize != file.length()) {
-            throw new IOException(String.format(
-                    "Possible corrupt clipboard file? Mismatch between expected file size `%d` and actual file size `%d`!",
-                    expectedFileSize,
-                    file.length()
-            ));
         }
     }
 
@@ -323,7 +305,23 @@ public class DiskOptimizedClipboard extends LinearClipboard {
     private void init() throws IOException {
         if (this.fileChannel == null) {
             this.fileChannel = braf.getChannel();
-            this.fileChannel.lock();
+            try {
+                FileLock lock = this.fileChannel.lock();
+                LOCK_HOLDER_CACHE.put(file.getName(), new LockHolder(lock));
+            } catch (OverlappingFileLockException e) {
+                LockHolder existing = LOCK_HOLDER_CACHE.get(file.getName());
+                if (existing != null) {
+                    long ms = System.currentTimeMillis() - existing.lockHeldSince;
+                    LOGGER.error(
+                            "Cannot lock clipboard file {} acquired by thread {}, {}ms ago",
+                            file.getName(),
+                            existing.thread,
+                            ms
+                    );
+                }
+                // Rethrow to prevent clipboard access
+                throw e;
+            }
             this.byteBuffer = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, braf.length());
         }
     }
@@ -694,11 +692,20 @@ public class DiskOptimizedClipboard extends LinearClipboard {
 
     @Override
     public BlockState getBlock(int index) {
-        try {
-            int diskIndex = headerSize + (index << 1);
-            char ordinal = byteBuffer.getChar(diskIndex);
-            return BlockState.getFromOrdinal(ordinal);
-        } catch (IndexOutOfBoundsException ignored) {
+        if (Fawe.platform().getPlatform().equalsIgnoreCase("Fabric-Official")) {
+            try {
+                int diskIndex = headerSize + (index << 2);
+                int ordinal = byteBuffer.getInt(diskIndex);
+                return BlockState.getFromOrdinal(ordinal);
+            } catch (IndexOutOfBoundsException ignored) {
+            }
+        } else {
+            try {
+                int diskIndex = headerSize + (index << 1);
+                char ordinal = byteBuffer.getChar(diskIndex);
+                return BlockState.getFromOrdinal(ordinal);
+            } catch (IndexOutOfBoundsException ignored) {
+            }
         }
         return BlockTypes.AIR.getDefaultState();
     }
@@ -720,43 +727,98 @@ public class DiskOptimizedClipboard extends LinearClipboard {
 
     @Override
     public <B extends BlockStateHolder<B>> boolean setBlock(int x, int y, int z, B block) {
-        try {
-            int index = headerSize + (getIndex(x, y, z) << 1);
-            char ordinal = block.getOrdinalChar();
-            if (ordinal == 0) {
-                ordinal = 1;
+        if (Fawe.platform().getPlatform().equalsIgnoreCase("Fabric-Official")) {
+            try {
+                int index = headerSize + (getIndex(x, y, z) << 2);
+                int ordinal = block.getOrdinal();
+                if (ordinal == 0) {
+                    ordinal = 1;
+                }
+                byteBuffer.putInt(index, ordinal);
+                boolean hasNbt = block instanceof BaseBlock && block.hasNbtData();
+                if (hasNbt) {
+                    setTile(x, y, z, block.getNbtData());
+                }
+                return true;
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            byteBuffer.putChar(index, ordinal);
-            boolean hasNbt = block instanceof BaseBlock && block.hasNbtData();
-            if (hasNbt) {
-                setTile(x, y, z, block.getNbtData());
+            return false;
+        } else {
+
+
+            try {
+                int index = headerSize + (getIndex(x, y, z) << 1);
+                char ordinal = block.getOrdinalChar();
+                if (ordinal == 0) {
+                    ordinal = 1;
+                }
+                byteBuffer.putChar(index, ordinal);
+                boolean hasNbt = block instanceof BaseBlock && block.hasNbtData();
+                if (hasNbt) {
+                    setTile(x, y, z, block.getNbtData());
+                }
+                return true;
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
+            return false;
         }
-        return false;
     }
 
     @Override
     public <B extends BlockStateHolder<B>> boolean setBlock(int i, B block) {
-        try {
-            char ordinal = block.getOrdinalChar();
-            int index = headerSize + (i << 1);
-            byteBuffer.putChar(index, ordinal);
-            boolean hasNbt = block instanceof BaseBlock && block.hasNbtData();
-            if (hasNbt) {
-                int y = i / getArea();
-                int newI = i - y * getArea();
-                int z = newI / getWidth();
-                int x = newI - z * getWidth();
-                setTile(x, y, z, block.getNbtData());
+        if (Fawe.platform().getPlatform().equalsIgnoreCase("Fabric-Official")) {
+            try {
+                int ordinal = block.getOrdinal();
+                int index = headerSize + (i << 2);
+                byteBuffer.putInt(index, ordinal);
+                boolean hasNbt = block instanceof BaseBlock && block.hasNbtData();
+                if (hasNbt) {
+                    int y = i / getArea();
+                    int newI = i - y * getArea();
+                    int z = newI / getWidth();
+                    int x = newI - z * getWidth();
+                    setTile(x, y, z, block.getNbtData());
+                }
+                return true;
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
+            return false;
+        } else {
+            try {
+                char ordinal = block.getOrdinalChar();
+                int index = headerSize + (i << 1);
+                byteBuffer.putChar(index, ordinal);
+                boolean hasNbt = block instanceof BaseBlock && block.hasNbtData();
+                if (hasNbt) {
+                    int y = i / getArea();
+                    int newI = i - y * getArea();
+                    int z = newI / getWidth();
+                    int x = newI - z * getWidth();
+                    setTile(x, y, z, block.getNbtData());
+                }
+                return true;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return false;
         }
-        return false;
     }
+
+    private static class LockHolder {
+
+        final FileLock lock;
+        final long lockHeldSince;
+        final String thread;
+
+        LockHolder(FileLock lock) {
+            this.lock = lock;
+            lockHeldSince = System.currentTimeMillis();
+            this.thread = Thread.currentThread().getName();
+        }
+    }
+
 
 }

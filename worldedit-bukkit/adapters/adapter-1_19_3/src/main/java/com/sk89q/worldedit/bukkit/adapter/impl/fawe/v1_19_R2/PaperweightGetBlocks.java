@@ -76,9 +76,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -96,11 +98,13 @@ public class PaperweightGetBlocks extends DataArrayGetBlocks implements BukkitGe
             .getInstance()
             .getBukkitImplAdapter());
     private final ReadWriteLock sectionLock = new ReentrantReadWriteLock();
+    private final ReentrantLock callLock = new ReentrantLock();
     private final ServerLevel serverLevel;
     private final int chunkX;
     private final int chunkZ;
     private final int minHeight;
     private final int maxHeight;
+    private final ConcurrentHashMap<Integer, PaperweightGetBlocks_Copy> copies = new ConcurrentHashMap<>();
     private final int minSectionPosition;
     private final int maxSectionPosition;
     private final Registry<Biome> biomeRegistry;
@@ -113,6 +117,7 @@ public class PaperweightGetBlocks extends DataArrayGetBlocks implements BukkitGe
     private PaperweightGetBlocks_Copy copy = null;
     private boolean forceLoadSections = true;
     private boolean lightUpdate = false;
+    private int copyKey = 0;
 
     public PaperweightGetBlocks(World world, int chunkX, int chunkZ) {
         this(((CraftWorld) world).getHandle(), chunkX, chunkZ);
@@ -147,13 +152,27 @@ public class PaperweightGetBlocks extends DataArrayGetBlocks implements BukkitGe
     }
 
     @Override
-    public void setCreateCopy(boolean createCopy) {
+    public int setCreateCopy(boolean createCopy) {
+        if (!callLock.isHeldByCurrentThread()) {
+            throw new IllegalStateException("Attempting to set if chunk GET should create copy, but it is not call-locked.");
+        }
         this.createCopy = createCopy;
+        return ++this.copyKey;
     }
 
     @Override
-    public IChunkGet getCopy() {
-        return copy;
+    public IChunkGet getCopy(final int key) {
+        return copies.remove(key);
+    }
+
+    @Override
+    public void lockCall() {
+        this.callLock.lock();
+    }
+
+    @Override
+    public void unlockCall() {
+        this.callLock.unlock();
     }
 
     @Override

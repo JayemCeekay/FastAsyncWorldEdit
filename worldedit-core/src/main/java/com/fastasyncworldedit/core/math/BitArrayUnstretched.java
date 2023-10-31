@@ -99,9 +99,9 @@ public final class BitArrayUnstretched {
         int arrI = 0;
         for (int i = 0; i < longLen; i++) {
             long l = data[i];
-            char lastVal;
+            int lastVal;
             for (; localStart <= maxSeqLocIndex && arrI < buffer.length; localStart += bitsPerEntry) {
-                lastVal = (char) (l >>> localStart & this.mask);
+                lastVal = (int) (l >>> localStart & this.mask);
                 buffer[arrI++] = lastVal;
             }
             localStart = 0;
@@ -118,9 +118,9 @@ public final class BitArrayUnstretched {
         int arrI = 0;
         for (int i = 0; i < longLen; i++) {
             long l = data[i];
-            char lastVal;
+            int lastVal;
             for (; localStart <= maxSeqLocIndex && arrI < DataArray.CHUNK_SECTION_SIZE; localStart += bitsPerEntry) {
-                lastVal = (char) (l >>> localStart & this.mask);
+                lastVal = (int) (l >>> localStart & this.mask);
                 buffer.setAt(arrI++, lastVal);
             }
             localStart = 0;

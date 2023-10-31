@@ -25,6 +25,7 @@ import net.minecraft.world.level.chunk.PalettedContainerRO;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -102,7 +103,8 @@ public class FabricGetBlocks_Copy implements IChunkGet {
     }
 
     @Override
-    public void setCreateCopy(boolean createCopy) {
+    public int setCreateCopy(boolean createCopy) {
+        return -1;
     }
 
     @Override
@@ -191,6 +193,9 @@ public class FabricGetBlocks_Copy implements IChunkGet {
     @Override
     public boolean hasSection(int layer) {
         layer -= getMinSectionPosition();
+        if (blocks[layer] == null) {
+            blocks[layer] = DataArray.createFilled(BlockTypesCache.ReservedIDs.AIR);
+        }
         return blocks[layer] != null;
     }
 

@@ -9,12 +9,12 @@ public class FabricQueueHandler extends QueueHandler {
     }
 
     @Override
-    public void startSet(final boolean parallel) {
+    public void startUnsafe(final boolean parallel) {
 
     }
 
     @Override
-    public void endSet(final boolean parallel) {
+    public void endUnsafe(final boolean parallel) {
 
     }
 

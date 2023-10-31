@@ -15,6 +15,8 @@ public abstract class DataArrayGetBlocks extends DataArrayBlocks implements IChu
         super(minSectionPosition, maxSectionPosition);
     }
 
+
+
     @Override
     public BaseBlock getFullBlock(int x, int y, int z) {
         BlockState state = BlockTypesCache.states[get(x, y, z)];

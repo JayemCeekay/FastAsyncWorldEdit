@@ -44,7 +44,12 @@ public abstract class FaweStreamChangeSet extends AbstractChangeSet {
     protected FaweStreamPositionDelegate posDel;
 
     public FaweStreamChangeSet(World world) {
-        this(world, Settings.settings().HISTORY.COMPRESSION_LEVEL, Settings.settings().HISTORY.STORE_REDO, Settings.settings().HISTORY.SMALL_EDITS);
+        this(
+                world,
+                Settings.settings().HISTORY.COMPRESSION_LEVEL,
+                Settings.settings().HISTORY.STORE_REDO,
+                Settings.settings().HISTORY.SMALL_EDITS
+        );
     }
 
     public FaweStreamChangeSet(World world, int compression, boolean storeRedo, boolean smallLoc) {
@@ -258,7 +263,7 @@ public abstract class FaweStreamChangeSet extends AbstractChangeSet {
         if (blockSize > 0) {
             return false;
         }
-        if (waitingCombined.get() != 0 || waitingAsync.get() != 0) {
+        if (!super.isEmpty()) {
             return false;
         }
         flush();

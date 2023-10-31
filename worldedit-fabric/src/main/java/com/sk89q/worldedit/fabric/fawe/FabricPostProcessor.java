@@ -120,35 +120,35 @@ public class FabricPostProcessor implements IBatchProcessor {
         if (set == null || get == null) {
             return false;
         }
-        char ordinal;
+        int ordinal;
         char reserved = BlockTypesCache.ReservedIDs.__RESERVED__;
         if (x > 0 && set.getAt(i - 1) != reserved) {
-            if (BlockTypesCache.ticking[(ordinal = (char) get.getAt(i - 1))] && isFluid(ordinal)) {
+            if (BlockTypesCache.ticking[(ordinal =  get.getAt(i - 1))] && isFluid(ordinal)) {
                 return true;
             }
         }
         if (x < 15 && set.getAt(i + 1) != reserved) {
-            if (BlockTypesCache.ticking[(ordinal = (char) get.getAt(i + 1))] && isFluid(ordinal)) {
+            if (BlockTypesCache.ticking[(ordinal =  get.getAt(i + 1))] && isFluid(ordinal)) {
                 return true;
             }
         }
         if (z > 0 && set.getAt(i - 16) != reserved) {
-            if (BlockTypesCache.ticking[(ordinal = (char) get.getAt(i - 16))] && isFluid(ordinal)) {
+            if (BlockTypesCache.ticking[(ordinal =  get.getAt(i - 16))] && isFluid(ordinal)) {
                 return true;
             }
         }
         if (z < 15 && set.getAt(i + 16) != reserved) {
-            if (BlockTypesCache.ticking[(ordinal = (char) get.getAt(i + 16))] && isFluid(ordinal)) {
+            if (BlockTypesCache.ticking[(ordinal =  get.getAt(i + 16))] && isFluid(ordinal)) {
                 return true;
             }
         }
         if (y > 0 && set.getAt(i - 256) != reserved) {
-            if (BlockTypesCache.ticking[(ordinal = (char) get.getAt(i - 256))] && isFluid(ordinal)) {
+            if (BlockTypesCache.ticking[(ordinal =  get.getAt(i - 256))] && isFluid(ordinal)) {
                 return true;
             }
         }
         if (y < 15 && set.getAt(i + 256) != reserved) {
-            return BlockTypesCache.ticking[(ordinal = (char) get.getAt(i + 256))] && isFluid(ordinal);
+            return BlockTypesCache.ticking[(ordinal =  get.getAt(i + 256))] && isFluid(ordinal);
         }
         return false;
     }

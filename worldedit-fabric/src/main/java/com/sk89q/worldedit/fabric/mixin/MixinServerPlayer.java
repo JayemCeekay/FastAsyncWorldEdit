@@ -19,17 +19,28 @@
 
 package com.sk89q.worldedit.fabric.mixin;
 
+import com.sk89q.worldedit.fabric.FabricAdapter;
+import com.sk89q.worldedit.fabric.FabricWorldEdit;
 import com.sk89q.worldedit.fabric.internal.ExtendedPlayerEntity;
+import com.sk89q.worldedit.math.Vector3;
+import com.sk89q.worldedit.util.Location;
 import net.minecraft.network.protocol.game.ServerboundClientInformationPacket;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ServerPlayer.class)
 public abstract class MixinServerPlayer implements ExtendedPlayerEntity {
 
+    @Shadow
+    public ServerGamePacketListenerImpl connection;
     private String language = "en_us";
 
     @Inject(method = "updateOptions", at = @At(value = "HEAD"))
@@ -42,5 +53,9 @@ public abstract class MixinServerPlayer implements ExtendedPlayerEntity {
     public String getLanguage() {
         return language;
     }
-
+/*thod = "changeDimension", at = @At(value = "HEAD"))
+    public void changeDimension(ServerLevel serverLevel, CallbackInfoReturnable<Entity> cir) {
+        FabricWorldEdit.inst.wrapPlayer(this.connection.getPlayer()).setLocation(new Location(FabricAdapter.adapt(serverLevel)));
+    }
+*/
 }

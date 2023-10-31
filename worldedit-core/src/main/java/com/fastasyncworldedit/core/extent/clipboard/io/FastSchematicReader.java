@@ -76,7 +76,7 @@ public class FastSchematicReader extends NBTSchematicReader {
     private int offsetX;
     private int offsetY;
     private int offsetZ;
-    private char[] palette;
+    private int[] palette;
     private char[] biomePalette;
     private BlockVector3 min = BlockVector3.ZERO;
     private boolean brokenEntities = false;
@@ -171,7 +171,7 @@ public class FastSchematicReader extends NBTSchematicReader {
 
         StreamDelegate paletteDelegate = schematic.add("Palette");
         paletteDelegate.withValue((ValueReader<Map<String, Object>>) (ignore, v) -> {
-            palette = new char[v.size()];
+            palette = new int[v.size()];
             for (Entry<String, Object> entry : v.entrySet()) {
                 BlockState state;
                 String palettePart = fix(entry.getKey());
@@ -182,7 +182,7 @@ public class FastSchematicReader extends NBTSchematicReader {
                     state = BlockTypes.AIR.getDefaultState();
                 }
                 int index = (int) entry.getValue();
-                palette[index] = (char) state.getOrdinal();
+                palette[index] = state.getOrdinal();
             }
         });
         StreamDelegate blockData = schematic.add("BlockData");

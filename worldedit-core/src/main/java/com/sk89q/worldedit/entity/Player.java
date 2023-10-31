@@ -426,25 +426,11 @@ public interface Player extends Entity, Actor {
         cancel(true);
         LocalSession session = getSession();
         if (Settings.settings().CLIPBOARD.USE_DISK && Settings.settings().CLIPBOARD.DELETE_ON_LOGOUT) {
-            ClipboardHolder holder = session.getExistingClipboard();
-            if (holder != null) {
-                for (Clipboard clipboard : holder.getClipboards()) {
-                    DiskOptimizedClipboard doc;
-                    if (clipboard instanceof DiskOptimizedClipboard) {
-                        doc = (DiskOptimizedClipboard) clipboard;
-                    } else if (clipboard instanceof BlockArrayClipboard && ((BlockArrayClipboard) clipboard).getParent() instanceof DiskOptimizedClipboard) {
-                        doc = (DiskOptimizedClipboard) ((BlockArrayClipboard) clipboard).getParent();
-                    } else {
-                        continue;
-                    }
-                    WorldEdit.getInstance().getExecutorService().submit(() -> {
-                        doc.close(); // Ensure closed before deletion
-                        doc.getFile().delete();
-                    });
-                }
-            }
-        } else if (Settings.settings().CLIPBOARD.DELETE_ON_LOGOUT || Settings.settings().CLIPBOARD.USE_DISK) {
-            WorldEdit.getInstance().getExecutorService().submit(() -> session.setClipboard(null));
+            session.deleteClipboardOnDisk();
+        } else if (Settings.settings().CLIPBOARD.USE_DISK) {
+            Fawe.instance().getClipboardExecutor().submit(getUniqueId(), () -> session.setClipboard(null));
+        } else if (Settings.settings().CLIPBOARD.DELETE_ON_LOGOUT) {
+            session.setClipboard(null);
         }
         if (Settings.settings().HISTORY.DELETE_ON_LOGOUT) {
             session.clearHistory();
@@ -462,19 +448,7 @@ public interface Player extends Entity, Actor {
                 Settings.settings().PATHS.CLIPBOARD + File.separator + getUniqueId() + ".bd"
         );
         try {
-            if (file.exists() && file.length() > 5) {
-                LocalSession session = getSession();
-                try {
-                    if (session.getClipboard() != null) {
-                        return;
-                    }
-                } catch (EmptyClipboardException ignored) {
-                }
-                DiskOptimizedClipboard doc = DiskOptimizedClipboard.loadFromFile(file);
-                Clipboard clip = doc.toClipboard();
-                ClipboardHolder holder = new ClipboardHolder(clip);
-                session.setClipboard(holder);
-            }
+            getSession().loadClipboardFromDisk(file);
         } catch (FaweClipboardVersionMismatchException e) {
             print(e.getComponent());
         } catch (RuntimeException e) {

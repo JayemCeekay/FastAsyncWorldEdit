@@ -19,8 +19,16 @@
 
 package com.sk89q.worldedit.fabric;
 
+import com.google.common.base.Suppliers;
+import com.sk89q.jnbt.CompoundTag;
+import com.sk89q.worldedit.fabric.fawe.FabricLazyCompoundTag;
 import com.sk89q.worldedit.world.registry.BlockMaterial;
 import com.sk89q.worldedit.world.registry.PassthroughBlockMaterial;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Material;
 import net.minecraft.world.level.material.PushReaction;
@@ -33,14 +41,25 @@ import javax.annotation.Nullable;
  * bundled block info.
  */
 public class FabricBlockMaterial extends PassthroughBlockMaterial {
-
+    private final Block block;
     private final Material delegate;
-    private final BlockState block;
+    private final BlockState blockState;
+    private final int opacity;
+    private final CompoundTag tile;
 
-    public FabricBlockMaterial(Material delegate, BlockState block, @Nullable BlockMaterial secondary) {
+    public FabricBlockMaterial(Block block, Material delegate, BlockState blockState, @Nullable BlockMaterial secondary) {
         super(secondary);
-        this.delegate = delegate;
         this.block = block;
+        this.delegate = delegate;
+        this.blockState = blockState;
+        opacity = blockState.getLightBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
+        BlockEntity tileEntity = !(blockState instanceof EntityBlock) ? null : ((EntityBlock) blockState).newBlockEntity(
+                BlockPos.ZERO,
+                blockState
+        );
+        tile = tileEntity == null
+                ? null
+                : new FabricLazyCompoundTag(Suppliers.memoize(tileEntity::saveWithId));
     }
 
     @Override
@@ -64,6 +83,31 @@ public class FabricBlockMaterial extends PassthroughBlockMaterial {
     }
 
     @Override
+    public float getHardness() {
+        return block.defaultDestroyTime();
+    }
+
+    @Override
+    public float getResistance() {
+        return block.getExplosionResistance();
+    }
+
+    @Override
+    public float getSlipperiness() {
+        return block.getFriction();
+    }
+
+    @Override
+    public int getLightValue() {
+        return blockState.getLightEmission();
+    }
+
+    @Override
+    public int getLightOpacity() {
+        return opacity;
+    }
+
+    @Override
     public boolean isFragileWhenPushed() {
         return delegate.getPushReaction() == PushReaction.DESTROY;
     }
@@ -71,6 +115,11 @@ public class FabricBlockMaterial extends PassthroughBlockMaterial {
     @Override
     public boolean isUnpushable() {
         return delegate.getPushReaction() == PushReaction.BLOCK;
+    }
+
+    @Override
+    public boolean isTicksRandomly() {
+        return block.isRandomlyTicking(blockState);
     }
 
     @Override
@@ -85,12 +134,39 @@ public class FabricBlockMaterial extends PassthroughBlockMaterial {
 
     @Override
     public boolean isToolRequired() {
-        return block.requiresCorrectToolForDrops();
+        return false;
     }
 
     @Override
     public boolean isReplacedDuringPlacement() {
         return delegate.isReplaceable();
+    }
+
+    @Override
+    public boolean isTranslucent() {
+        return blockState.canOcclude();
+    }
+
+
+    @Override
+    public boolean hasContainer() {
+        return block instanceof EntityBlock;
+    }
+
+    @Override
+    public boolean isTile() {
+        return blockState instanceof EntityBlock;
+    }
+
+    @Override
+    public CompoundTag getDefaultTile() {
+        return tile;
+    }
+
+    @Override
+    public int getMapColor() {
+        // rgb field
+        return delegate.getColor().col;
     }
 
 }

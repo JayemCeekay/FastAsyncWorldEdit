@@ -20,6 +20,7 @@ import com.fastasyncworldedit.core.util.collection.CleanableThreadLocal;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.sk89q.jnbt.ByteArrayTag;
 import com.sk89q.jnbt.ByteTag;
 import com.sk89q.jnbt.CompoundTag;
@@ -77,6 +78,10 @@ public enum FaweCache implements Trimable {
     public final int BLOCKS_PER_LAYER = 4096;
 
     public final char[] EMPTY_CHAR_4096 = new char[4096];
+
+    /**
+     * @since TODO
+     */
     public final DataArray EMPTY_DATA = DataArray.createEmpty();
 
     /**
@@ -244,7 +249,7 @@ public enum FaweCache implements Trimable {
 
     public final CleanableThreadLocal<char[]> SECTION_BITS_TO_CHAR = new CleanableThreadLocal<>(() -> new char[4096]);
 
-    public final CleanableThreadLocal<int[]> PALETTE_TO_BLOCK = new CleanableThreadLocal<>(() -> new int[Character.MAX_VALUE + 1]);
+    public final CleanableThreadLocal<int[]> PALETTE_TO_BLOCK = new CleanableThreadLocal<>(() -> new int[BlockTypesCache.states.length]);
 
     public final CleanableThreadLocal<char[]> PALETTE_TO_BLOCK_CHAR = new CleanableThreadLocal<>(
             () -> new char[Character.MAX_VALUE + 1], a -> {
@@ -252,7 +257,7 @@ public enum FaweCache implements Trimable {
     });
 
     public final CleanableThreadLocal<int[]> PALETTE_TO_BLOCK_INT = new CleanableThreadLocal<>(
-            () -> new int[Character.MAX_VALUE + 1], a -> {
+            () -> new int[BlockTypesCache.states.length], a -> {
         Arrays.fill(a, Integer.MAX_VALUE);
     });
 
@@ -566,7 +571,7 @@ public enum FaweCache implements Trimable {
         ArrayBlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(nThreads, true);
         return new ThreadPoolExecutor(nThreads, nThreads,
                 0L, TimeUnit.MILLISECONDS, queue,
-                Executors.defaultThreadFactory(),
+                new ThreadFactoryBuilder().setNameFormat("FAWE Blocking Executor - %d").build(),
                 new ThreadPoolExecutor.CallerRunsPolicy()
         ) {
 

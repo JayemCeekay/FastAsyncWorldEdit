@@ -44,15 +44,15 @@ public class FabricFaweWorldNativeAccess implements WorldNativeAccess<LevelChunk
             Direction.NORTH,
             Direction.SOUTH
     };
-    private final FabricFaweAdapter paperweightFaweAdapter;
+    private final FabricFaweAdapter fabricFaweAdapter;
     private final WeakReference<ServerLevel> level;
     private final AtomicInteger lastTick;
     private final Set<CachedChange> cachedChanges = new HashSet<>();
     private final Set<IntPair> cachedChunksToSend = new HashSet<>();
     private SideEffectSet sideEffectSet;
 
-    public FabricFaweWorldNativeAccess(FabricFaweAdapter paperweightFaweAdapter, WeakReference<ServerLevel> level) {
-        this.paperweightFaweAdapter = paperweightFaweAdapter;
+    public FabricFaweWorldNativeAccess(FabricFaweAdapter fabricFaweAdapter, WeakReference<ServerLevel> level) {
+        this.fabricFaweAdapter = fabricFaweAdapter;
         this.level = level;
         // Use the actual tick as minecraft-defined so we don't try to force blocks into the world when the server's already lagging.
         //  - With the caveat that we don't want to have too many cached changed (1024) so we'd flush those at 1024 anyway.
@@ -75,7 +75,7 @@ public class FabricFaweWorldNativeAccess implements WorldNativeAccess<LevelChunk
 
     @Override
     public net.minecraft.world.level.block.state.BlockState toNative(com.sk89q.worldedit.world.block.BlockState blockState) {
-        int stateId = paperweightFaweAdapter.ordinalToIbdID(blockState.getOrdinal());
+        int stateId = fabricFaweAdapter.ordinalToIbdID(blockState.getOrdinal());
         return BlockStateIdAccess.isValidInternalId(stateId)
                 ? Block.stateById(stateId)
                 : FabricFaweAdapter.adapt(blockState);
@@ -137,7 +137,7 @@ public class FabricFaweWorldNativeAccess implements WorldNativeAccess<LevelChunk
         if (blockEntity == null) {
             return false;
         }
-        net.minecraft.nbt.Tag nativeTag = NBTConverter.toNative((com.sk89q.jnbt.CompoundTag) tag);
+        net.minecraft.nbt.Tag nativeTag = fabricFaweAdapter.fromNativeBinary(tag);
         blockEntity.load((CompoundTag) nativeTag);
         return true;
     }

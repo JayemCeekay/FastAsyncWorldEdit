@@ -31,7 +31,7 @@ public class BukkitQueueHandler extends QueueHandler {
     }
 
     @Override
-    public void startSet(boolean parallel) {
+    public void startUnsafe(boolean parallel) {
         ChunkListener.physicsFreeze = true;
         if (parallel) {
             try {
@@ -51,7 +51,7 @@ public class BukkitQueueHandler extends QueueHandler {
     }
 
     @Override
-    public void endSet(boolean parallel) {
+    public void endUnsafe(boolean parallel) {
         ChunkListener.physicsFreeze = false;
         if (parallel) {
             try {
