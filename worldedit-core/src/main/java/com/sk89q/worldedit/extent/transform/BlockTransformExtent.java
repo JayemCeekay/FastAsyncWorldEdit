@@ -194,6 +194,14 @@ public class BlockTransformExtent extends ResettableExtent {
                 case "facing": {
                     List<Direction> directions = new ArrayList<>();
                     for (Object value : values) {
+                        if(value instanceof String stringValue) {
+                            if(stringValue.equalsIgnoreCase("flat")) {
+                                directions.add(UP);
+                                directions.add(DOWN);
+                                continue;
+                            }
+                        }
+
                         directions.add(Direction.valueOf(value.toString().toUpperCase(Locale.ROOT)));
                     }
                     return adapt(directions.toArray(new Direction[0]));

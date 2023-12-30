@@ -422,11 +422,30 @@ public interface Player extends Entity, Actor {
     /**
      * Unregister this player, deleting all data stored during the login session.
      */
+    /**
+     * Unregister this player, deleting all data stored during the login session.
+     */
     default void unregister() {
         cancel(true);
         LocalSession session = getSession();
         if (Settings.settings().CLIPBOARD.USE_DISK && Settings.settings().CLIPBOARD.DELETE_ON_LOGOUT) {
-            session.deleteClipboardOnDisk();
+            ClipboardHolder holder = session.getExistingClipboard();
+            if (holder != null) {
+                for (Clipboard clipboard : holder.getClipboards()) {
+                    DiskOptimizedClipboard doc;
+                    if (clipboard instanceof DiskOptimizedClipboard) {
+                        doc = (DiskOptimizedClipboard) clipboard;
+                    } else if (clipboard instanceof BlockArrayClipboard && ((BlockArrayClipboard) clipboard).getParent() instanceof DiskOptimizedClipboard) {
+                        doc = (DiskOptimizedClipboard) ((BlockArrayClipboard) clipboard).getParent();
+                    } else {
+                        continue;
+                    }
+                    Fawe.instance().getClipboardExecutor().submit(getUniqueId(), () -> {
+                        doc.close(); // Ensure closed before deletion
+                        doc.getFile().delete();
+                    });
+                }
+            }
         } else if (Settings.settings().CLIPBOARD.USE_DISK) {
             Fawe.instance().getClipboardExecutor().submit(getUniqueId(), () -> session.setClipboard(null));
         } else if (Settings.settings().CLIPBOARD.DELETE_ON_LOGOUT) {
@@ -436,6 +455,7 @@ public interface Player extends Entity, Actor {
             session.clearHistory();
         }
     }
+
 
     void sendTitle(Component title, Component sub);
 
@@ -448,7 +468,22 @@ public interface Player extends Entity, Actor {
                 Settings.settings().PATHS.CLIPBOARD + File.separator + getUniqueId() + ".bd"
         );
         try {
-            getSession().loadClipboardFromDisk(file);
+            if (file.exists() && file.length() > 5) {
+                LocalSession session = getSession();
+                try {
+                    if (session.getClipboard() != null) {
+                        return;
+                    }
+                } catch (EmptyClipboardException ignored) {
+                }
+                DiskOptimizedClipboard doc = Fawe.instance().getClipboardExecutor().submit(
+                        getUniqueId(),
+                        () -> DiskOptimizedClipboard.loadFromFile(file)
+                ).get();
+                Clipboard clip = doc.toClipboard();
+                ClipboardHolder holder = new ClipboardHolder(clip);
+                session.setClipboard(holder);
+            }
         } catch (FaweClipboardVersionMismatchException e) {
             print(e.getComponent());
         } catch (RuntimeException e) {
