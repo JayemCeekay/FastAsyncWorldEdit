@@ -144,7 +144,7 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
     private FabricConfiguration config;
     private Path workingDir;
 
-    public Map<ServerPlayer, FabricPlayer> FabricPlayerCache = new HashMap<>();
+    public Map<UUID, FabricPlayer> FabricPlayerCache = new HashMap<>();
 
     private ModContainer container;
 
@@ -313,8 +313,11 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
             synchronized (player) {
                 wePlayer = getCachedPlayer(player);
                 if (wePlayer == null) {
+
+
+
                     wePlayer = new FabricPlayer(player);
-                    FabricPlayerCache.put(player, wePlayer);
+                    FabricPlayerCache.put(player.getUUID(), wePlayer);
                     return wePlayer;
                 }
             }
@@ -323,13 +326,13 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         //FAWE end
     }
     FabricPlayer getCachedPlayer(ServerPlayer player) {
-        return FabricPlayerCache.get(player);
+        return FabricPlayerCache.get(player.getUUID());
     }
 
     FabricPlayer reCachePlayer(ServerPlayer player) {
         synchronized (player) {
             FabricPlayer wePlayer = new FabricPlayer(player);
-            FabricPlayerCache.put(player, wePlayer);
+            FabricPlayerCache.put(player.getUUID(), wePlayer);
             return wePlayer;
         }
     }
@@ -435,6 +438,8 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         return blockHitResult.getType() != HitResult.Type.MISS;
     }
     private void onPlayerDisconnect(ServerGamePacketListenerImpl handler, MinecraftServer server) {
+        FabricPlayerCache.get(handler.player.getUUID()).unregister();
+
         WorldEdit.getInstance().getEventBus()
                 .post(new SessionIdleEvent(new FabricPlayer.SessionKeyImpl(handler.player)));
     }
@@ -455,7 +460,7 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         if ((session = WorldEdit.getInstance().getSessionManager().getIfPresent(player)) != null) {
             session.loadDefaults(player, true);
         }
-        UpdateNotification.doUpdateNotification(player);
+        //UpdateNotification.doUpdateNotification(player);
     }
 
     /**
