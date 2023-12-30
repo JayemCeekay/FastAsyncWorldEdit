@@ -34,6 +34,14 @@ configure<LoomGradleExtensionAPI> {
 val minecraftVersion = "1.19.2"
 val yarnMappings = "1.19.2+build.28"
 val loaderVersion = "0.14.19"
+val myAttribute = Attribute.of("myOwnAttribute", String::class.java)
+
+configurations.named("archives") {
+    attributes {
+        attribute(myAttribute, "myOwnValue")
+    }
+}
+
 
 configurations.all {
     resolutionStrategy {
@@ -87,7 +95,7 @@ dependencies {
     api(libs.sparsebitset)
     api(libs.parallelgzip) { isTransitive = false }
     implementation(libs.zstd) { isTransitive = false }
-    implementation("dev.notmyfault.serverlib:ServerLib")
+    //implementation("dev.notmyfault.serverlib:ServerLib")
     "modImplementation"("xyz.nucleoid:stimuli:0.4.1+1.19.1")
     "modImplementation"("maven.modrinth:starlight:1.1.1+1.19")
 
