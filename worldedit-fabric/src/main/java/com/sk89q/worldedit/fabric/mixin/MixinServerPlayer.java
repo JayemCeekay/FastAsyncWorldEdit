@@ -44,8 +44,10 @@ public abstract class MixinServerPlayer implements ExtendedPlayerEntity {
     private String language = "en_us";
 
     @Inject(method = "updateOptions", at = @At(value = "HEAD"))
-    public void updateOptions(ServerboundClientInformationPacket clientSettingsC2SPacket,
-                              CallbackInfo callbackInfo) {
+    public void updateOptions(
+            ServerboundClientInformationPacket clientSettingsC2SPacket,
+            CallbackInfo callbackInfo
+    ) {
         this.language = clientSettingsC2SPacket.language();
     }
 
@@ -53,7 +55,9 @@ public abstract class MixinServerPlayer implements ExtendedPlayerEntity {
     public String getLanguage() {
         return language;
     }
-/*thod = "changeDimension", at = @At(value = "HEAD"))
+
+/*
+    @Inject(method = "changeDimension", at = @At(value = "HEAD"))
     public void changeDimension(ServerLevel serverLevel, CallbackInfoReturnable<Entity> cir) {
         FabricWorldEdit.inst.wrapPlayer(this.connection.getPlayer()).setLocation(new Location(FabricAdapter.adapt(serverLevel)));
     }
