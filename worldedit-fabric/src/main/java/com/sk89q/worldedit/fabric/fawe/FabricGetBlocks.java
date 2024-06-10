@@ -405,7 +405,8 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
             throw new IllegalStateException("Attempted to call chunk GET but chunk was not call-locked.");
         }
         forceLoadSections = false;
-        FabricGetBlocks_Copy copy = createCopy ? new FabricGetBlocks_Copy(levelChunk) : null; if (createCopy) {
+        FabricGetBlocks_Copy copy = createCopy ? new FabricGetBlocks_Copy(levelChunk) : null;
+        if (createCopy) {
             if (copies.containsKey(copyKey)) {
                 throw new IllegalStateException("Copy key already used.");
             }

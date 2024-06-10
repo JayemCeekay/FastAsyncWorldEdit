@@ -407,7 +407,8 @@ public class LocalSession implements TextureHolder {
      */
     public void clearHistory() {
         //FAWE start
-        if (Fawe.isMainThread() && !historyWriteLock.tryLock()) {
+        boolean mainThread = Fawe.isMainThread();
+        if (mainThread && !historyWriteLock.tryLock()) {
             // Do not make main thread wait if we cannot immediately clear history (on player logout usually)
             TaskManager.taskManager().async(this::clearHistoryTask);
             return;
@@ -415,7 +416,10 @@ public class LocalSession implements TextureHolder {
         try {
             clearHistoryTask();
         } finally {
-            historyWriteLock.unlock();
+            // only if we are on the main thread, we ever called tryLock -> need to unlock again
+            if (mainThread) {
+                historyWriteLock.unlock();
+            }
         }
     }
 
