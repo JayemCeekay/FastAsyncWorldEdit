@@ -45,6 +45,8 @@ import com.sk89q.worldedit.world.item.ItemType;
 import com.sk89q.worldedit.world.item.ItemTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -104,13 +106,13 @@ public class FabricAdapter {
     public static Biome adapt(BiomeType biomeType) {
         return FabricWorldEdit.server
             .registryAccess()
-            .registryOrThrow(Registry.BIOME_REGISTRY)
+            .registryOrThrow(Registries.BIOME)
             .get(new ResourceLocation(biomeType.getId()));
     }
 
     public static BiomeType adapt(Biome biome) {
         ResourceLocation id = FabricWorldEdit.server.registryAccess()
-            .registryOrThrow(Registry.BIOME_REGISTRY).getKey(biome);
+            .registryOrThrow(Registries.BIOME).getKey(biome);
         Objects.requireNonNull(id, "biome is not registered");
         return BiomeTypes.get(id.toString());
     }
@@ -275,19 +277,19 @@ public class FabricAdapter {
 
 
     public static Block adapt(BlockType blockType) {
-        return Registry.BLOCK.get(new ResourceLocation(blockType.getId()));
+        return BuiltInRegistries.BLOCK.get(new ResourceLocation(blockType.getId()));
     }
 
     public static BlockType adapt(Block block) {
-        return BlockTypes.get(Registry.BLOCK.getKey(block).toString());
+        return BlockTypes.get(BuiltInRegistries.BLOCK.getKey(block).toString());
     }
 
     public static Item adapt(ItemType itemType) {
-        return Registry.ITEM.get(new ResourceLocation(itemType.getId()));
+        return BuiltInRegistries.ITEM.get(new ResourceLocation(itemType.getId()));
     }
 
     public static ItemType adapt(Item item) {
-        return ItemTypes.get(Registry.ITEM.getKey(item).toString());
+        return ItemTypes.get(BuiltInRegistries.ITEM.getKey(item).toString());
     }
 
     public static ItemStack adapt(BaseItemStack baseItemStack) {

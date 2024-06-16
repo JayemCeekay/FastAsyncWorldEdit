@@ -72,6 +72,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Registry;
 import net.minecraft.core.Vec3i;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -228,35 +230,35 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
 
     private void setupRegistries(MinecraftServer server) {
         // Items
-        for (ResourceLocation name : Registry.ITEM.keySet()) {
+        for (ResourceLocation name : BuiltInRegistries.ITEM.keySet()) {
             if (ItemType.REGISTRY.get(name.toString()) == null) {
                 ItemType.REGISTRY.register(name.toString(), new ItemType(name.toString()));
             }
         }
         // Entities
-        for (ResourceLocation name : Registry.ENTITY_TYPE.keySet()) {
+        for (ResourceLocation name : BuiltInRegistries.ENTITY_TYPE.keySet()) {
             if (EntityType.REGISTRY.get(name.toString()) == null) {
                 EntityType.REGISTRY.register(name.toString(), new EntityType(name.toString()));
             }
         }
         // Biomes
-        for (ResourceLocation name : server.registryAccess().registryOrThrow(Registry.BIOME_REGISTRY).keySet()) {
+        for (ResourceLocation name : server.registryAccess().registryOrThrow(Registries.BIOME).keySet()) {
             if (BiomeType.REGISTRY.get(name.toString()) == null) {
                 BiomeType.REGISTRY.register(name.toString(), new BiomeType(name.toString()));
             }
         }
         // Tags
-        Registry.BLOCK.getTagNames().map(TagKey::location).forEach(name -> {
+        BuiltInRegistries.BLOCK.getTagNames().map(TagKey::location).forEach(name -> {
             if (BlockCategory.REGISTRY.get(name.toString()) == null) {
                 BlockCategory.REGISTRY.register(name.toString(), new BlockCategory(name.toString()));
             }
         });
-        Registry.ITEM.getTagNames().map(TagKey::location).forEach(name -> {
+        BuiltInRegistries.ITEM.getTagNames().map(TagKey::location).forEach(name -> {
             if (ItemCategory.REGISTRY.get(name.toString()) == null) {
                 ItemCategory.REGISTRY.register(name.toString(), new ItemCategory(name.toString()));
             }
         });
-        for(ResourceLocation name : Registry.FLUID.keySet()) {
+        for(ResourceLocation name : BuiltInRegistries.FLUID.keySet()) {
             if (FluidType.REGISTRY.get(name.toString()) == null) {
                 FluidType.REGISTRY.register(name.toString(), new FluidType(name.toString()));
             }

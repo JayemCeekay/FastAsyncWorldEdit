@@ -31,6 +31,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.IdMap;
 import net.minecraft.core.Registry;
 import net.minecraft.core.SectionPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.IntTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.server.level.ServerLevel;
@@ -119,7 +120,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
         this.maxSectionPosition = maxHeight >> 4;
         this.skyLight = new DataLayer[getSectionCount()];
         this.blockLight = new DataLayer[getSectionCount()];
-        this.biomeRegistry = serverLevel.registryAccess().registryOrThrow(Registry.BIOME_REGISTRY);
+        this.biomeRegistry = serverLevel.registryAccess().registryOrThrow(Registries.BIOME);
         this.biomeHolderIdMap = biomeRegistry.asHolderIdMap();
     }
 
@@ -277,8 +278,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                 ((LevelLightEngine) serverLevel.getChunkSource().getLightEngine()).queueSectionData(
                         LightLayer.BLOCK,
                         sectionPos,
-                        dataLayer,
-                        true
+                        dataLayer
                 );
             }
             skyLight[alayer] = dataLayer;
@@ -305,7 +305,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                 Arrays.fill(LAYER_COUNT, (byte) 15);
                 dataLayer = new DataLayer(LAYER_COUNT);
                 ((LevelLightEngine) serverLevel.getChunkSource().getLightEngine()).queueSectionData(LightLayer.BLOCK, sectionPos,
-                        dataLayer, true
+                        dataLayer
                 );
             }
             blockLight[alayer] = dataLayer;
@@ -1074,8 +1074,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                 ((LevelLightEngine) serverLevel.getChunkSource().getLightEngine()).queueSectionData(
                         lightLayer,
                         sectionPos,
-                        dataLayer,
-                        true
+                        dataLayer
                 );
             }
             synchronized (dataLayer) {

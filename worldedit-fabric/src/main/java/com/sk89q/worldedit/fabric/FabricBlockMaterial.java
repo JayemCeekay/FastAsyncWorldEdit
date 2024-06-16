@@ -30,7 +30,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.material.Material;
 import net.minecraft.world.level.material.PushReaction;
 
 import javax.annotation.Nullable;
@@ -42,15 +41,13 @@ import javax.annotation.Nullable;
  */
 public class FabricBlockMaterial extends PassthroughBlockMaterial {
     private final Block block;
-    private final Material delegate;
     private final BlockState blockState;
     private final int opacity;
     private final CompoundTag tile;
 
-    public FabricBlockMaterial(Block block, Material delegate, BlockState blockState, @Nullable BlockMaterial secondary) {
+    public FabricBlockMaterial(Block block, BlockState blockState, @Nullable BlockMaterial secondary) {
         super(secondary);
         this.block = block;
-        this.delegate = delegate;
         this.blockState = blockState;
         opacity = blockState.getLightBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
         BlockEntity tileEntity = !(blockState instanceof EntityBlock) ? null : ((EntityBlock) blockState).newBlockEntity(
@@ -64,22 +61,22 @@ public class FabricBlockMaterial extends PassthroughBlockMaterial {
 
     @Override
     public boolean isAir() {
-        return delegate == Material.AIR || super.isAir();
+        return blockState.isAir() || super.isAir();
     }
 
     @Override
     public boolean isOpaque() {
-        return delegate.isSolidBlocking();
+        return blockState.canOcclude();
     }
 
     @Override
     public boolean isLiquid() {
-        return delegate.isLiquid();
+        return blockState.liquid();
     }
 
     @Override
     public boolean isSolid() {
-        return delegate.isSolid();
+        return blockState.isSolid();
     }
 
     @Override
@@ -109,12 +106,12 @@ public class FabricBlockMaterial extends PassthroughBlockMaterial {
 
     @Override
     public boolean isFragileWhenPushed() {
-        return delegate.getPushReaction() == PushReaction.DESTROY;
+        return blockState.getPistonPushReaction() == PushReaction.DESTROY;
     }
 
     @Override
     public boolean isUnpushable() {
-        return delegate.getPushReaction() == PushReaction.BLOCK;
+        return blockState.getPistonPushReaction() == PushReaction.BLOCK;
     }
 
     @Override
@@ -124,12 +121,12 @@ public class FabricBlockMaterial extends PassthroughBlockMaterial {
 
     @Override
     public boolean isMovementBlocker() {
-        return delegate.blocksMotion();
+        return blockState.blocksMotion();
     }
 
     @Override
     public boolean isBurnable() {
-        return delegate.isFlammable();
+        return blockState.ignitedByLava();
     }
 
     @Override
@@ -139,7 +136,7 @@ public class FabricBlockMaterial extends PassthroughBlockMaterial {
 
     @Override
     public boolean isReplacedDuringPlacement() {
-        return delegate.isReplaceable();
+        return blockState.canBeReplaced();
     }
 
     @Override
@@ -166,7 +163,7 @@ public class FabricBlockMaterial extends PassthroughBlockMaterial {
     @Override
     public int getMapColor() {
         // rgb field
-        return delegate.getColor().col;
+        return block.defaultMapColor().col;
     }
 
 }

@@ -31,7 +31,6 @@ import com.google.common.util.concurrent.Futures;
 import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.jnbt.NBTConstants;
 import com.sk89q.worldedit.EditSession;
-import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.WorldEditException;
 import com.sk89q.worldedit.blocks.BaseItem;
 import com.sk89q.worldedit.blocks.BaseItemStack;
@@ -42,7 +41,6 @@ import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.fabric.fawe.FabricFaweAdapter;
 import com.sk89q.worldedit.fabric.fawe.FabricFaweWorldNativeAccess;
 import com.sk89q.worldedit.fabric.internal.ExtendedMinecraftServer;
-import com.sk89q.worldedit.fabric.internal.FabricWorldNativeAccess;
 import com.sk89q.worldedit.fabric.internal.NBTConverter;
 import com.sk89q.worldedit.fabric.mixin.AccessorDerivedLevelData;
 import com.sk89q.worldedit.fabric.mixin.AccessorPrimaryLevelData;
@@ -74,17 +72,14 @@ import com.sk89q.worldedit.world.weather.WeatherTypes;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.features.EndFeatures;
 import net.minecraft.data.worldgen.features.TreeFeatures;
-import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.Clearable;
 import net.minecraft.world.InteractionHand;
@@ -104,7 +99,7 @@ import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.dimension.LevelStem;
-import net.minecraft.world.level.levelgen.WorldGenSettings;
+import net.minecraft.world.level.levelgen.WorldOptions;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.LevelStorageSource;
@@ -112,6 +107,7 @@ import net.minecraft.world.level.storage.ServerLevelData;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 
+import javax.annotation.Nullable;
 import java.lang.ref.WeakReference;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -128,7 +124,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -143,7 +138,7 @@ public class FabricWorld extends AbstractWorld {
     private static ResourceLocation getDimensionRegistryKey(Level world) {
         return Objects.requireNonNull(world.getServer(), "server cannot be null")
             .registryAccess()
-            .registryOrThrow(Registry.DIMENSION_TYPE_REGISTRY)
+            .registryOrThrow(Registries.DIMENSION_TYPE)
             .getKey(world.dimensionType());
     }
 
@@ -278,9 +273,9 @@ public class FabricWorld extends AbstractWorld {
         var biomeArray = (PalettedContainer<Holder<Biome>>) chunk.getSection(chunk.getSectionIndex(position.getY())).getBiomes();
         biomeArray.getAndSetUnchecked(
             position.getX() & 3, position.getY() & 3, position.getZ() & 3,
-            getWorld().registryAccess().registry(Registry.BIOME_REGISTRY)
+            getWorld().registryAccess().registry(Registries.BIOME)
                 .orElseThrow()
-                .getHolderOrThrow(ResourceKey.create(Registry.BIOME_REGISTRY, new ResourceLocation(biome.getId())))
+                .getHolderOrThrow(ResourceKey.create(Registries.BIOME, new ResourceLocation(biome.getId())))
         );
         chunk.setUnsaved(true);
         return true;
@@ -374,39 +369,40 @@ public class FabricWorld extends AbstractWorld {
         Path tempDir = Files.createTempDirectory("WorldEditWorldGen");
         LevelStorageSource levelStorage = LevelStorageSource.createDefault(tempDir);
         try (LevelStorageSource.LevelStorageAccess session = levelStorage.createAccess("WorldEditTempGen")) {
-            ServerLevel originalWorld = (ServerLevel) getWorld();
+            ServerLevel originalWorld = getWorld();
             AccessorPrimaryLevelData levelProperties;
             if (originalWorld.getLevelData() instanceof AccessorDerivedLevelData derivedLevelData) {
                 levelProperties = (AccessorPrimaryLevelData) derivedLevelData.getWrapped();
             } else {
                 levelProperties = (AccessorPrimaryLevelData) originalWorld.getLevelData();
             }
-            WorldGenSettings originalOpts = levelProperties.worldGenSettings();
+            WorldOptions originalOpts = levelProperties.worldGenOptions();
 
             long seed = options.getSeed().orElse(originalWorld.getSeed());
-            WorldGenSettings newOpts = options.getSeed().isPresent()
-                ? originalOpts.withSeed(levelProperties.isHardcore(), OptionalLong.of(seed))
+            WorldOptions newOpts = options.getSeed().isPresent()
+                ? originalOpts.withSeed(OptionalLong.of(seed))
                 : originalOpts;
 
-            levelProperties.setWorldGenSettings(newOpts);
+            levelProperties.setWorldOptions(newOpts);
             ResourceKey<Level> worldRegKey = originalWorld.dimension();
-            LevelStem dimGenOpts = newOpts.dimensions().get(worldRegKey.location());
-            checkNotNull(dimGenOpts, "No DimensionOptions for %s", worldRegKey);
+            //LevelStem dimGenOpts = newOpts.dimensions().get(worldRegKey.location());
+            //checkNotNull(dimGenOpts, "No DimensionOptions for %s", worldRegKey);
             try (ServerLevel serverWorld = new ServerLevel(
-                originalWorld.getServer(), Util.backgroundExecutor(), session,
-                ((ServerLevelData) originalWorld.getLevelData()),
-                worldRegKey,
-                new LevelStem(
-                    originalWorld.dimensionTypeRegistration(),
-                    dimGenOpts.generator()
-                ),
-                new WorldEditGenListener(),
-                originalWorld.isDebug(),
-                seed,
-                // No spawners are needed for this world.
-                ImmutableList.of(),
-                // This controls ticking, we don't need it so set it to false.
-                false
+                    originalWorld.getServer(), Util.backgroundExecutor(), session,
+                    ((ServerLevelData) originalWorld.getLevelData()),
+                    worldRegKey,
+                    new LevelStem(
+                            originalWorld.dimensionTypeRegistration(),
+                            originalWorld.getChunkSource().getGenerator()
+                    ),
+                    new WorldEditGenListener(),
+                    originalWorld.isDebug(),
+                    seed,
+                    // No spawners are needed for this world.
+                    ImmutableList.of(),
+                    // This controls ticking, we don't need it so set it to false.
+                    false,
+                    originalWorld.getRandomSequences()
             )) {
                 regenForWorld(region, extent, serverWorld, options);
 
@@ -415,7 +411,7 @@ public class FabricWorld extends AbstractWorld {
                     Thread.yield();
                 }
             } finally {
-                levelProperties.setWorldGenSettings(originalOpts);
+                levelProperties.setWorldOptions(originalOpts);
             }
         } finally {
             SafeFiles.tryHardToDeleteDir(tempDir);
@@ -477,7 +473,7 @@ public class FabricWorld extends AbstractWorld {
     }
 
     @Nullable
-    private static Holder<? extends ConfiguredFeature<?, ?>> createTreeFeatureGenerator(TreeType type) {
+    private static ResourceKey<ConfiguredFeature<?, ?>> createTreeFeatureGenerator(TreeType type) {
         return switch (type) {
             // Based off of the SaplingGenerator class, as well as uses of DefaultBiomeFeatures fields
             case TREE -> TreeFeatures.OAK;
@@ -499,6 +495,9 @@ public class FabricWorld extends AbstractWorld {
             case WARPED_FUNGUS -> TreeFeatures.WARPED_FUNGUS;
             case CRIMSON_FUNGUS -> TreeFeatures.CRIMSON_FUNGUS;
             case CHORUS_PLANT -> EndFeatures.CHORUS_PLANT;
+            case MANGROVE -> TreeFeatures.MANGROVE;
+            case TALL_MANGROVE -> TreeFeatures.TALL_MANGROVE;
+            case CHERRY -> TreeFeatures.CHERRY;
             case RANDOM -> createTreeFeatureGenerator(TreeType.values()[ThreadLocalRandom.current().nextInt(TreeType.values().length)]);
             default -> null;
         };
@@ -506,10 +505,10 @@ public class FabricWorld extends AbstractWorld {
 
     @Override
     public boolean generateTree(TreeType type, EditSession editSession, BlockVector3 position) {
+        ServerLevel world = getWorld();
         ConfiguredFeature<?, ?> generator = Optional.ofNullable(createTreeFeatureGenerator(type))
-            .map(Holder::value)
+                .map(k -> world.registryAccess().registryOrThrow(Registries.CONFIGURED_FEATURE).get(k))
             .orElse(null);
-        ServerLevel world = (ServerLevel) getWorld();
         ServerChunkCache chunkManager = world.getChunkSource();
         if (type == TreeType.CHORUS_PLANT) {
             position = position.add(0, 1, 0);
@@ -534,7 +533,7 @@ public class FabricWorld extends AbstractWorld {
     public void fixLighting(Iterable<BlockVector2> chunks) {
         Level world = getWorld();
         for (BlockVector2 chunk : chunks) {
-            world.getChunkSource().getLightEngine().enableLightSources(
+            world.getChunkSource().getLightEngine().setLightEnabled(
                 new ChunkPos(chunk.getBlockX(), chunk.getBlockZ()), true
             );
         }

@@ -43,6 +43,7 @@ import com.sk89q.worldedit.world.block.BlockStateHolder;
 import com.sk89q.worldedit.world.block.BlockTypesCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ChunkHolder;
@@ -467,7 +468,7 @@ public final class FabricFaweAdapter extends FabricAdapter {
     public int getInternalBiomeId(BiomeType biomeType) {
         final Registry<Biome> registry = FabricWorldEdit.server
                 .registryAccess()
-                .ownedRegistryOrThrow(Registry.BIOME_REGISTRY);
+                .registryOrThrow(Registries.BIOME);
         ResourceLocation resourceLocation = ResourceLocation.tryParse(biomeType.getId());
         Biome biome = registry.get(resourceLocation);
         return registry.getId(biome);

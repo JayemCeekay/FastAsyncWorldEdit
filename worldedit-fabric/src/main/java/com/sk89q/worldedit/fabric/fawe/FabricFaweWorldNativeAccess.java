@@ -15,6 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ChunkHolder;
+import net.minecraft.server.level.FullChunkStatus;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
@@ -155,7 +156,7 @@ public class FabricFaweWorldNativeAccess implements WorldNativeAccess<LevelChunk
 
     @Override
     public boolean isChunkTicking(LevelChunk levelChunk) {
-        return levelChunk.getFullStatus().isOrAfter(ChunkHolder.FullChunkStatus.TICKING);
+        return levelChunk.getFullStatus().isOrAfter(FullChunkStatus.BLOCK_TICKING);
     }
 
     @Override

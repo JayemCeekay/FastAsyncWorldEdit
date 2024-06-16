@@ -29,6 +29,7 @@ import com.sk89q.worldedit.util.Location;
 import com.sk89q.worldedit.world.NullWorld;
 import com.sk89q.worldedit.world.entity.EntityTypes;
 import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 
@@ -52,7 +53,7 @@ public class FabricEntity implements Entity {
         if (entity == null || entity.isPassenger()) {
             return null;
         }
-        ResourceLocation id = Registry.ENTITY_TYPE.getKey(entity.getType());
+        ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
         CompoundTag tag = new CompoundTag();
         entity.saveWithoutId(tag);
         return new BaseEntity(EntityTypes.get(id.toString()), (com.sk89q.jnbt.CompoundTag) NBTConverter.toNative(tag));
@@ -66,7 +67,8 @@ public class FabricEntity implements Entity {
             float yaw = entity.getYRot();
             float pitch = entity.getXRot();
 
-            return new Location(FabricAdapter.adapt(entity.getServer().getLevel(entity.level.dimension())), position, yaw, pitch);
+            return new Location(FabricAdapter.adapt(entity.getServer().getLevel(entity.level().dimension())), position, yaw,
+                    pitch);
         } else {
             return new Location(NullWorld.getInstance());
         }
@@ -82,7 +84,7 @@ public class FabricEntity implements Entity {
     public Extent getExtent() {
         net.minecraft.world.entity.Entity entity = entityRef.get();
         if (entity != null) {
-            return FabricAdapter.adapt(entity.getServer().getLevel(entity.level.dimension()));
+            return FabricAdapter.adapt(entity.getServer().getLevel(entity.level().dimension()));
         } else {
             return NullWorld.getInstance();
         }

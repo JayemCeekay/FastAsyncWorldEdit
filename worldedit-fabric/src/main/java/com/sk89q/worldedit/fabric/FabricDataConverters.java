@@ -228,8 +228,9 @@ class FabricDataConverters extends DataFixerBuilder implements com.sk89q.worlded
         return fixer;
     }
 
+
     @Override
-    public DataFixer buildOptimized(Executor executor) {
+    public DataFixer buildOptimized(final Set<TypeReference> requiredTypes, final Executor executor) {
         return fixer;
     }
 

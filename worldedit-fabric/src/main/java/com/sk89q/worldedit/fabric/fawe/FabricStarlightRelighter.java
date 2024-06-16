@@ -113,7 +113,7 @@ public class FabricStarlightRelighter implements Relighter {
             ThreadedLevelLightEngine lightingProvider,
             ChunkAccess chunk
     ) {
-        boolean flag = ChunkStatus.isLighted(status, chunk);
+        boolean flag = ChunkStatus.isLighted(chunk);
 
         if (!chunk.getStatus().isOrAfter(status)) {
             ((ProtoChunk) chunk).setStatus(status);
@@ -218,13 +218,13 @@ public class FabricStarlightRelighter implements Relighter {
                             ((java.util.concurrent.Executor) serverLevel.getChunkSource().mainThreadProcessor).execute(() -> {
                                 serverLevel.getChunkSource().chunkMap
                                         .getUpdatingChunkIfPresent(chunkPos.toLong())
-                                        .broadcast(new net.minecraft.network.protocol.game.ClientboundLightUpdatePacket(
+                                        .broadcast(serverLevel.getServer().getPlayerList().getPlayers(),
+                                                new net.minecraft.network.protocol.game.ClientboundLightUpdatePacket(
                                                 chunkPos,
                                                 serverLevel.getChunkSource().getLightEngine(),
                                                 null,
-                                                null,
-                                                true
-                                        ), false);
+                                                null
+                                        ));
                                 serverLevel.getChunkSource().removeRegionTicket(CHUNK_RELIGHT, chunkPos,
                                         LIGHT_LEVEL, ticketIds.get(chunkPos)
                                 );

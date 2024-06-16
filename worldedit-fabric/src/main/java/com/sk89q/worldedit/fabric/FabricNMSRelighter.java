@@ -21,6 +21,7 @@ import com.sk89q.worldedit.world.block.BlockTypes;
 import com.sk89q.worldedit.world.registry.BlockMaterial;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.StairBlock;
@@ -349,10 +350,10 @@ public class FabricNMSRelighter implements Relighter {
             if (lightLevel <= 1) {
                 continue;
             }
-            if (Registry.BLOCK.get(new ResourceLocation(id)) instanceof SlabBlock){
+            if (BuiltInRegistries.BLOCK.get(new ResourceLocation(id)) instanceof SlabBlock){
                 boolean top = state.getState(slabHalf).equalsIgnoreCase("top");
                 computeSlab(node.getX(), node.getY(), node.getZ(), lightLevel, lightPropagationQueue, visited, top);
-            } else if (Registry.BLOCK.get(new ResourceLocation(id)) instanceof StairBlock) {
+            } else if (BuiltInRegistries.BLOCK.get(new ResourceLocation(id)) instanceof StairBlock) {
                 boolean top = state.getState(stairHalf).equalsIgnoreCase("top");
                 Direction direction = getStairDir(state);
                 String shape = getStairShape(state);

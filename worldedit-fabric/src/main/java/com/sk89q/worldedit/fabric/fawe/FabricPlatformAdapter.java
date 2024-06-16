@@ -18,6 +18,7 @@ import com.sk89q.worldedit.world.block.BlockTypesCache;
 import net.minecraft.core.Holder;
 import net.minecraft.core.IdMap;
 import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
@@ -162,8 +163,7 @@ public class FabricPlatformAdapter extends NMSAdapter {
                     levelChunk,
                     nmsWorld.getChunkSource().getLightEngine(),
                     null,
-                    null,
-                    true
+                    null
             );
             nearbyPlayers(nmsWorld, coordIntPair).forEach(p -> p.connection.send(packet));
         });
@@ -269,7 +269,7 @@ public class FabricPlatformAdapter extends NMSAdapter {
                 );
             }
 
-            return new LevelChunkSection(layer, blockStatePalettedContainer, biomes);
+            return new LevelChunkSection(blockStatePalettedContainer, biomes);
         } catch (final Throwable e) {
             throw e;
         } finally {
@@ -287,14 +287,14 @@ public class FabricPlatformAdapter extends NMSAdapter {
             @Nullable PalettedContainer<Holder<Biome>> biomes
     ) {
         if (biomes == null) {
-            return new LevelChunkSection(layer, biomeRegistry);
+            return new LevelChunkSection(biomeRegistry);
         }
         PalettedContainer<net.minecraft.world.level.block.state.BlockState> dataPaletteBlocks = new PalettedContainer<>(
                 Block.BLOCK_STATE_REGISTRY,
                 Blocks.AIR.defaultBlockState(),
                 PalettedContainer.Strategy.SECTION_STATES
         );
-        return new LevelChunkSection(layer, dataPaletteBlocks, biomes);
+        return new LevelChunkSection(dataPaletteBlocks, biomes);
     }
 
     /**
@@ -403,7 +403,7 @@ public class FabricPlatformAdapter extends NMSAdapter {
     }
 
     public static BiomeType adapt(Holder<Biome> biome, LevelAccessor levelAccessor) {
-        final Registry<Biome> biomeRegistry = levelAccessor.registryAccess().ownedRegistryOrThrow(Registry.BIOME_REGISTRY);
+        final Registry<Biome> biomeRegistry = levelAccessor.registryAccess().registryOrThrow(Registries.BIOME);
         if (biomeRegistry.getKey(biome.value()) == null) {
             return biomeRegistry.asHolderIdMap().getId(biome) == -1 ? BiomeTypes.OCEAN
                     : null;

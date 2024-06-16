@@ -31,9 +31,9 @@ configure<LoomGradleExtensionAPI> {
 }
 
 
-val minecraftVersion = "1.19.2"
-val yarnMappings = "1.19.2+build.28"
-val loaderVersion = "0.14.19"
+val minecraftVersion = "1.20.1"
+val yarnMappings = "1.20.1+build.10"
+val loaderVersion = "0.15.11"
 val myAttribute = Attribute.of("myOwnAttribute", String::class.java)
 
 configurations.named("archives") {
@@ -96,11 +96,11 @@ dependencies {
     api(libs.parallelgzip) { isTransitive = false }
     implementation(libs.zstd) { isTransitive = false }
     //implementation("dev.notmyfault.serverlib:ServerLib")
-    "modImplementation"("xyz.nucleoid:stimuli:0.4.1+1.19.1")
-    "modImplementation"("maven.modrinth:starlight:1.1.1+1.19")
+    "modImplementation"("xyz.nucleoid:stimuli:0.4.8+1.20.1")
+    "modImplementation"("maven.modrinth:starlight:1.1.2+1.20")
 
     // [1] declare fabric-api dependency...
-    "modImplementation"("net.fabricmc.fabric-api:fabric-api:0.76.0+1.19.2")
+    "modImplementation"("net.fabricmc.fabric-api:fabric-api:0.92.2+1.20.1")
     /*
     // [2] Load the API dependencies from the fabric mod json...
     @Suppress("UNCHECKED_CAST")
