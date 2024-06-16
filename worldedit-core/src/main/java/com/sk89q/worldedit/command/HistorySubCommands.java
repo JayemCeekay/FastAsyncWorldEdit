@@ -80,7 +80,6 @@ public class HistorySubCommands {
     @Confirm
     public synchronized void rerun(
             Player player, World world, RollbackDatabase database,
-            @AllowedRegion Region[] allowedRegions,
             @ArgFlag(name = 'u', desc = "String user", def = "me")
                     UUID other,
             @ArgFlag(name = 'r', def = "0", desc = "radius")
@@ -90,7 +89,7 @@ public class HistorySubCommands {
             @Time
                     long timeDiff
     ) throws WorldEditException {
-        rollback(player, world, database, allowedRegions, other, radius, timeDiff, true);
+        rollback(player, world, database, other, radius, timeDiff, true);
     }
 
     @Command(
@@ -102,7 +101,6 @@ public class HistorySubCommands {
     @Confirm
     public synchronized void rollback(
             Player player, World world, RollbackDatabase database,
-            @AllowedRegion Region[] allowedRegions,
             @ArgFlag(name = 'u', desc = "String user", def = "")
                     UUID other,
             @ArgFlag(name = 'r', def = "0", desc = "radius")
@@ -149,9 +147,9 @@ public class HistorySubCommands {
             count++;
             RollbackOptimizedHistory edit = supplier.get();
             if (restore) {
-                edit.redo(player, allowedRegions);
+                edit.redo(player);
             } else {
-                edit.undo(player, allowedRegions);
+                edit.undo(player);
             }
             String path = edit.getWorld().getName() + "/" + finalOther + "-" + edit.getIndex();
             player.print(Caption.of("fawe.worldedit.rollback.rollback.element", path));
@@ -201,8 +199,7 @@ public class HistorySubCommands {
                                                         .at(summary.maxX, world.getMaxY(), summary.maxZ)
                                         );
                                         rollback.setTime(historyFile.lastModified());
-                                        RollbackDatabase db = DBHandler.IMP
-                                                .getDatabase(world);
+                                        RollbackDatabase db = DBHandler.dbHandler().getDatabase(world);
                                         db.logEdit(rollback);
                                         actor.print(TextComponent.of("Logging: " + historyFile));
                                     }

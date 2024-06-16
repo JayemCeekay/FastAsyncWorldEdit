@@ -61,6 +61,7 @@ bstatsBase = { group = "org.bstats", name = "bstats-base", version.ref = "bstats
 sparsebitset = { group = "com.zaxxer", name = "SparseBitSet", version.ref = "sparsebitset" }
 parallelgzip = { group = "org.anarres", name = "parallelgzip", version.ref = "parallelgzip" }
 adventureNbt = { group = "net.kyori", name = "adventure-nbt", version.ref = "adventure" }
+adventureMiniMessage = { group = "net.kyori", name = "adventure-text-minimessage", version.ref = "adventure-text-minimessage" }
 truezip = { group = "de.schlichtherle", name = "truezip", version.ref = "truezip" }
 autoValueAnnotations = { group = "com.google.auto.value", name = "auto-value-annotations", version.ref = "auto-value" }
 autoValue = { group = "com.google.auto.value", name = "auto-value", version.ref = "auto-value" }

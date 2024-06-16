@@ -47,7 +47,7 @@ dependencies {
     implementation(libs.rhino)
     compileOnly("net.kyori:adventure-api")
     compileOnlyApi(libs.adventureNbt)
-    compileOnlyApi("net.kyori:adventure-text-minimessage")
+    compileOnlyApi(libs.adventureMiniMessage)
     implementation(libs.zstd) { isTransitive = false }
     compileOnly("com.intellectualsites.paster:Paster")
     compileOnly(libs.lz4Java) { isTransitive = false }
