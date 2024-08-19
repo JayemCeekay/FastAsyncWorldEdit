@@ -66,14 +66,11 @@ import java.util.function.Function;
 class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
 
     private final FabricWorldEdit mod;
-    private final FabricDataConverters dataFixer;
     private final Lifecycled<Optional<Watchdog>> watchdog;
     private boolean hookingEvents = false;
 
     FabricPlatform(FabricWorldEdit mod) {
         this.mod = mod;
-        this.dataFixer = new FabricDataConverters(getDataVersion());
-
         this.watchdog = FabricWorldEdit.LIFECYCLED_SERVER.map(
                 server -> server instanceof DedicatedServer
                         ? Optional.of((Watchdog) server)
@@ -97,7 +94,7 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
 
     @Override
     public DataFixer getDataFixer() {
-        return dataFixer;
+        return FabricDataConverters.INSTANCE;
     }
 
     @Override

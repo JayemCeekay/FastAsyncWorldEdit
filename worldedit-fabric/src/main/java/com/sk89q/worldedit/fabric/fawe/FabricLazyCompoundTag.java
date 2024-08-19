@@ -4,7 +4,7 @@ import com.sk89q.jnbt.LazyCompoundTag;
 import com.sk89q.jnbt.ListTag;
 import com.sk89q.jnbt.StringTag;
 import com.sk89q.jnbt.Tag;
-import com.sk89q.worldedit.fabric.internal.NBTConverter;
+import com.sk89q.worldedit.fabric.FabricWorldEdit;
 import com.sk89q.worldedit.util.nbt.CompoundBinaryTag;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NumericTag;
@@ -38,7 +38,7 @@ public class FabricLazyCompoundTag extends LazyCompoundTag {
     @SuppressWarnings("unchecked")
     public Map<String, Tag> getValue() {
         if (compoundTag == null) {
-            compoundTag = (com.sk89q.jnbt.CompoundTag) NBTConverter.toNative(compoundTagSupplier.get());
+            compoundTag = (com.sk89q.jnbt.CompoundTag) FabricWorldEdit.inst.getFaweAdapter().toNative(compoundTagSupplier.get());
         }
         return compoundTag.getValue();
     }
@@ -102,7 +102,7 @@ public class FabricLazyCompoundTag extends LazyCompoundTag {
                 if (elem instanceof net.minecraft.nbt.CompoundTag compoundTag) {
                     list.add(new FabricLazyCompoundTag(compoundTag));
                 } else {
-                    list.add(NBTConverter.toNative(elem));
+                    list.add(FabricWorldEdit.inst.getFaweAdapter().toNative(elem));
                 }
             }
             return list;
@@ -114,7 +114,7 @@ public class FabricLazyCompoundTag extends LazyCompoundTag {
     public ListTag getListTag(String key) {
         net.minecraft.nbt.Tag tag = compoundTagSupplier.get().get(key);
         if (tag instanceof net.minecraft.nbt.ListTag) {
-            return (ListTag) NBTConverter.toNative(tag);
+            return (ListTag) FabricWorldEdit.inst.getFaweAdapter().toNative(tag);
         }
         return new ListTag(StringTag.class, Collections.emptyList());
     }

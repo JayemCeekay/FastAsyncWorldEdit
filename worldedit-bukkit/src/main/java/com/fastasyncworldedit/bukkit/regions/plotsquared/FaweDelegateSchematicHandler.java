@@ -152,7 +152,7 @@ public class FaweDelegateSchematicHandler {
                 final BlockVector3 to = BlockVector3
                         .at(region.getMinimumPoint().getX() + xOffset, y_offset_actual, region.getMinimumPoint().getZ() + zOffset);
                 final Clipboard clipboard = schematic.getClipboard();
-                clipboard.paste(editSession, to, true, false, true);
+                clipboard.paste(editSession, to, true, true, true);
                 if (whenDone != null) {
                     whenDone.value = true;
                     TaskManager.runTask(whenDone);

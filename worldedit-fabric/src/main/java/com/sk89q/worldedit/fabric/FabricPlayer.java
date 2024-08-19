@@ -28,7 +28,6 @@ import com.sk89q.worldedit.entity.BaseEntity;
 import com.sk89q.worldedit.extension.platform.AbstractPlayerActor;
 import com.sk89q.worldedit.extent.inventory.BlockBag;
 import com.sk89q.worldedit.fabric.internal.ExtendedPlayerEntity;
-import com.sk89q.worldedit.fabric.internal.NBTConverter;
 import com.sk89q.worldedit.fabric.net.handler.WECUIPacketHandler;
 import com.sk89q.worldedit.internal.block.BlockStateIdAccess;
 import com.sk89q.worldedit.internal.cui.CUIEvent;
@@ -57,6 +56,7 @@ import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.StructureBlockEntity;
@@ -75,11 +75,15 @@ public class FabricPlayer extends AbstractPlayerActor {
         this.player = player;
         ThreadSafeCache.getInstance().getOnlineIds().add(getUniqueId());
         if (player != null && Settings.settings().CLIPBOARD.USE_DISK) {
-            FabricPlayer cached = FabricWorldEdit.inst.getCachedPlayer(player);
-            if (cached == null) {
+            //FabricPlayer cached = FabricWorldEdit.inst.getCachedPlayer(player);
+            //if (cached == null) {
                 loadClipboardFromDisk();
-            }
+           // }
         }
+    }
+
+    public ServerPlayer getPlayer() {
+        return player;
     }
 
     @Override
@@ -306,7 +310,7 @@ public class FabricPlayer extends AbstractPlayerActor {
                                             new BlockPos(pos.getBlockX(), pos.getBlockY(), pos.getBlockZ()),
                                             Blocks.STRUCTURE_BLOCK.defaultBlockState()
                                     ),
-                                    __ -> NBTConverter.fromNative(nbtData)
+                                    __ -> (net.minecraft.nbt.CompoundTag) FabricWorldEdit.inst.getFaweAdapter().fromNative(nbtData)
                             )
                     );
                 }

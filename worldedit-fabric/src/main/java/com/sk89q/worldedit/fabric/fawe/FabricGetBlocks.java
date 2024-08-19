@@ -19,7 +19,6 @@ import com.sk89q.jnbt.StringTag;
 import com.sk89q.jnbt.Tag;
 import com.sk89q.worldedit.fabric.FabricEntity;
 import com.sk89q.worldedit.fabric.FabricWorldEdit;
-import com.sk89q.worldedit.fabric.internal.NBTConverter;
 import com.sk89q.worldedit.internal.Constants;
 import com.sk89q.worldedit.internal.util.LogManagerCompat;
 import com.sk89q.worldedit.math.BlockVector3;
@@ -383,7 +382,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                 Iterable<CompoundTag> result = entities.stream().map(input -> {
                     net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
                     input.save(tag);
-                    return NBTConverter.toNative(tag);
+                    return(CompoundTag) adapter.toNative(tag);
                 }).collect(Collectors.toList());
                 return result.iterator();
             }
@@ -726,10 +725,10 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                             if (type != null) {
                                 Entity entity = type.create(nmsWorld);
                                 if (entity != null) {
-                                    final net.minecraft.nbt.CompoundTag tag = (net.minecraft.nbt.CompoundTag) NBTConverter.fromNative(
+                                    final net.minecraft.nbt.CompoundTag tag = (net.minecraft.nbt.CompoundTag) adapter.fromNative(
                                             nativeTag);
                                     if (entityTagMap.containsKey("Leash")) {
-                                        var leashTag = (net.minecraft.nbt.CompoundTag) NBTConverter.fromNative(
+                                        var leashTag = (net.minecraft.nbt.CompoundTag) adapter.fromNative(
                                                 entityTagMap.get("Leash"));
                                         final LeashFenceKnotEntity leashEntity = leashRef.get(NbtUtils.readBlockPos(leashTag));
                                         if (leashEntity != null) {
@@ -744,7 +743,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                                     entity.setUUID(nativeTag.getUUID());
 
                                     if (entity instanceof LeashFenceKnotEntity leashFenceKnotEntity) {
-                                        var leashTag = (net.minecraft.nbt.CompoundTag) NBTConverter.fromNative(
+                                        var leashTag = (net.minecraft.nbt.CompoundTag) adapter.fromNative(
                                                 entityTagMap.get("OldPos"));
                                         if (leashTag != null) {
                                             leashRef.put(
@@ -799,7 +798,7 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
                                     tileEntity = nmsWorld.getBlockEntity(pos);
                                 }
                                 if (tileEntity != null) {
-                                    final net.minecraft.nbt.CompoundTag tag = NBTConverter.fromNative(
+                                    final net.minecraft.nbt.CompoundTag tag = (net.minecraft.nbt.CompoundTag) adapter.fromNative(
                                             nativeTag);
                                     tag.put("x", IntTag.valueOf(x));
                                     tag.put("y", IntTag.valueOf(y));

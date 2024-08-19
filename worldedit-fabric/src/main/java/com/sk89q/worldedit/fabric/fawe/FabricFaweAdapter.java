@@ -4,16 +4,15 @@ import com.fastasyncworldedit.core.FaweCache;
 import com.fastasyncworldedit.core.queue.IBatchProcessor;
 import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.implementation.packet.ChunkPacket;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.sk89q.jnbt.AdventureNBTConverter;
 import com.sk89q.jnbt.Tag;
 import com.sk89q.worldedit.fabric.FabricAdapter;
+import com.sk89q.worldedit.fabric.FabricDataConverters;
 import com.sk89q.worldedit.fabric.FabricWorldEdit;
 import com.sk89q.worldedit.fabric.internal.FabricTransmogrifier;
 import com.sk89q.worldedit.internal.util.LogManagerCompat;
-import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.registry.state.BooleanProperty;
 import com.sk89q.worldedit.registry.state.DirectionalProperty;
 import com.sk89q.worldedit.registry.state.EnumProperty;
@@ -37,11 +36,10 @@ import com.sk89q.worldedit.util.nbt.LongBinaryTag;
 import com.sk89q.worldedit.util.nbt.ShortBinaryTag;
 import com.sk89q.worldedit.util.nbt.StringBinaryTag;
 import com.sk89q.worldedit.world.biome.BiomeType;
-import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockStateHolder;
 import com.sk89q.worldedit.world.block.BlockTypesCache;
-import net.minecraft.core.BlockPos;
+import net.minecraft.SharedConstants;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
@@ -54,10 +52,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
-import net.minecraft.world.level.chunk.LevelChunk;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 
@@ -88,6 +84,7 @@ public final class FabricFaweAdapter extends FabricAdapter {
 
     public FabricFaweAdapter() throws NoSuchFieldException, NoSuchMethodException {
         super();
+        new FabricDataConverters(SharedConstants.getCurrentVersion().getDataVersion().getVersion(), this);
     }
 
     @Nullable
@@ -353,6 +350,9 @@ public final class FabricFaweAdapter extends FabricAdapter {
 
     @Deprecated
     public net.minecraft.nbt.Tag fromNative(Tag foreign) {
+        if (foreign instanceof FabricLazyCompoundTag) {
+            return ((FabricLazyCompoundTag) foreign).get();
+        }
         if (foreign == null) {
             return null;
         }

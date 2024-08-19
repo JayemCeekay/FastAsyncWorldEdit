@@ -41,7 +41,6 @@ import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.fabric.fawe.FabricFaweAdapter;
 import com.sk89q.worldedit.fabric.fawe.FabricFaweWorldNativeAccess;
 import com.sk89q.worldedit.fabric.internal.ExtendedMinecraftServer;
-import com.sk89q.worldedit.fabric.internal.NBTConverter;
 import com.sk89q.worldedit.fabric.mixin.AccessorDerivedLevelData;
 import com.sk89q.worldedit.fabric.mixin.AccessorPrimaryLevelData;
 import com.sk89q.worldedit.fabric.mixin.AccessorServerChunkCache;
@@ -267,17 +266,20 @@ public class FabricWorld extends AbstractWorld {
     public boolean setBiome(BlockVector3 position, BiomeType biome) {
         checkNotNull(position);
         checkNotNull(biome);
-
-        ChunkAccess chunk = getWorld().getChunk(position.getBlockX() >> 4, position.getBlockZ() >> 4);
-        // Screw it, we know it's really mutable...
-        var biomeArray = (PalettedContainer<Holder<Biome>>) chunk.getSection(chunk.getSectionIndex(position.getY())).getBiomes();
-        biomeArray.getAndSetUnchecked(
-            position.getX() & 3, position.getY() & 3, position.getZ() & 3,
-            getWorld().registryAccess().registry(Registries.BIOME)
-                .orElseThrow()
-                .getHolderOrThrow(ResourceKey.create(Registries.BIOME, new ResourceLocation(biome.getId())))
-        );
-        chunk.setUnsaved(true);
+        if(position.getY() <= this.getMaxY() && position.getY() >= this.getMinY()) {
+            ChunkAccess chunk = getWorld().getChunk(position.getBlockX() >> 4, position.getBlockZ() >> 4);
+            // Screw it, we know it's really mutable...
+            var biomeArray = (PalettedContainer<Holder<Biome>>) chunk
+                    .getSection(chunk.getSectionIndex(position.getY()))
+                    .getBiomes();
+            biomeArray.getAndSetUnchecked(
+                    position.getX() & 3, position.getY() & 3, position.getZ() & 3,
+                    getWorld().registryAccess().registry(Registries.BIOME)
+                            .orElseThrow()
+                            .getHolderOrThrow(ResourceKey.create(Registries.BIOME, new ResourceLocation(biome.getId())))
+            );
+            chunk.setUnsaved(true);
+        }
         return true;
     }
 
@@ -448,7 +450,7 @@ public class FabricWorld extends AbstractWorld {
             BlockStateHolder<?> state = FabricAdapter.adapt(chunk.getBlockState(pos));
             BlockEntity blockEntity = chunk.getBlockEntity(pos);
             if (blockEntity != null) {
-                state = state.toBaseBlock(NBTConverter.toNative(blockEntity.saveWithId()));
+                state = state.toBaseBlock((CompoundTag) FabricWorldEdit.inst.getFaweAdapter().toNative(blockEntity.saveWithId()));
             }
             extent.setBlock(vec, state.toBaseBlock());
 
@@ -705,7 +707,7 @@ public class FabricWorld extends AbstractWorld {
         CompoundTag nativeTag = entity.getNbtData();
         net.minecraft.nbt.CompoundTag tag;
         if (nativeTag != null) {
-            tag = NBTConverter.fromNative(entity.getNbtData());
+            tag = (net.minecraft.nbt.CompoundTag) FabricWorldEdit.inst.getFaweAdapter().fromNative(entity.getNbtData());
             removeUnwantedEntityTagsRecursively(tag);
         } else {
             tag = new net.minecraft.nbt.CompoundTag();

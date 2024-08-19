@@ -468,6 +468,8 @@ public interface Player extends Entity, Actor {
                 Settings.settings().PATHS.CLIPBOARD + File.separator + getUniqueId() + ".bd"
         );
         try {
+            getSession().loadClipboardFromDisk(file);
+            /*
             if (file.exists() && file.length() > 5) {
                 LocalSession session = getSession();
                 try {
@@ -483,7 +485,7 @@ public interface Player extends Entity, Actor {
                 Clipboard clip = doc.toClipboard();
                 ClipboardHolder holder = new ClipboardHolder(clip);
                 session.setClipboard(holder);
-            }
+            }*/
         } catch (FaweClipboardVersionMismatchException e) {
             print(e.getComponent());
         } catch (RuntimeException e) {

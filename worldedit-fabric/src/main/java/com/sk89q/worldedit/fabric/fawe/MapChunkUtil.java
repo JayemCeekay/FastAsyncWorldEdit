@@ -2,7 +2,7 @@ package com.sk89q.worldedit.fabric.fawe;
 
 import com.fastasyncworldedit.core.queue.implementation.packet.ChunkPacket;
 import com.sk89q.jnbt.CompoundTag;
-import com.sk89q.worldedit.fabric.internal.NBTConverter;
+import com.sk89q.worldedit.fabric.FabricWorldEdit;
 import com.sk89q.worldedit.math.BlockVector3;
 
 import java.lang.reflect.Field;
@@ -29,7 +29,7 @@ public abstract class MapChunkUtil<T> {
             fieldZ.setInt(nmsPacket, packet.getChunkZ());
 
             if (fieldHeightMap != null) {
-                Object heightMap = NBTConverter.fromNative(packet.getHeightMap());
+                Object heightMap = FabricWorldEdit.inst.getFaweAdapter().fromNative(packet.getHeightMap());
                 fieldHeightMap.set(nmsPacket, heightMap);
             }
 
@@ -38,7 +38,7 @@ public abstract class MapChunkUtil<T> {
             Map<BlockVector3, CompoundTag> tiles = packet.getChunk().getTiles();
             ArrayList<Object> nmsTiles = new ArrayList<>(tiles.size());
             for (Map.Entry<BlockVector3, CompoundTag> entry : tiles.entrySet()) {
-                Object nmsTag = NBTConverter.fromNative(entry.getValue());
+                Object nmsTag = FabricWorldEdit.inst.getFaweAdapter().fromNative(entry.getValue());
                 nmsTiles.add(nmsTag);
             }
             fieldBlockEntities.set(nmsPacket, nmsTiles);

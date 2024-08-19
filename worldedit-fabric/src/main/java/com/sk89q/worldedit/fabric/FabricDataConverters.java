@@ -35,7 +35,7 @@ import com.mojang.datafixers.DataFixer;
 import com.mojang.datafixers.DataFixerBuilder;
 import com.mojang.datafixers.schemas.Schema;
 import com.mojang.serialization.Dynamic;
-import com.sk89q.worldedit.fabric.internal.NBTConverter;
+import com.sk89q.worldedit.fabric.fawe.FabricFaweAdapter;
 import com.sk89q.worldedit.util.nbt.CompoundBinaryTag;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.*;
@@ -82,7 +82,7 @@ import javax.annotation.Nullable;
  * </p>
  */
 @SuppressWarnings({"UnnecessarilyQualifiedStaticUsage", "unchecked", "rawtypes"})
-class FabricDataConverters extends DataFixerBuilder implements com.sk89q.worldedit.world.DataFixer {
+public class FabricDataConverters extends DataFixerBuilder implements com.sk89q.worldedit.world.DataFixer {
 
     @Override
     public <T> T fixUp(FixType<T> type, T original, int srcVer) {
@@ -103,21 +103,21 @@ class FabricDataConverters extends DataFixerBuilder implements com.sk89q.worlded
     }
 
     private CompoundBinaryTag fixChunk(CompoundBinaryTag originalChunk, int srcVer) {
-        net.minecraft.nbt.CompoundTag tag = NBTConverter.fromNative(originalChunk);
+        net.minecraft.nbt.CompoundTag tag = (CompoundTag) adapter.fromNativeBinary(originalChunk);
         net.minecraft.nbt.CompoundTag fixed = convert(LegacyType.CHUNK, tag, srcVer);
-        return (CompoundBinaryTag) FabricWorldEdit.inst.getFaweAdapter().toNativeBinary(fixed);
+        return (CompoundBinaryTag) adapter.toNativeBinary(fixed);
     }
 
     private CompoundBinaryTag fixBlockEntity(CompoundBinaryTag origTileEnt, int srcVer) {
-        net.minecraft.nbt.CompoundTag tag = NBTConverter.fromNative(origTileEnt);
+        net.minecraft.nbt.CompoundTag tag = (CompoundTag) adapter.fromNativeBinary(origTileEnt);
         net.minecraft.nbt.CompoundTag fixed = convert(LegacyType.BLOCK_ENTITY, tag, srcVer);
-        return (CompoundBinaryTag) FabricWorldEdit.inst.getFaweAdapter().toNativeBinary(fixed);
+        return (CompoundBinaryTag) adapter.toNativeBinary(fixed);
     }
 
     private CompoundBinaryTag fixEntity(CompoundBinaryTag origEnt, int srcVer) {
-        net.minecraft.nbt.CompoundTag tag = NBTConverter.fromNative(origEnt);
+        net.minecraft.nbt.CompoundTag tag = (CompoundTag) adapter.fromNativeBinary(origEnt);
         net.minecraft.nbt.CompoundTag fixed = convert(LegacyType.ENTITY, tag, srcVer);
-        return (CompoundBinaryTag) FabricWorldEdit.inst.getFaweAdapter().toNativeBinary(fixed);
+        return (CompoundBinaryTag) adapter.toNativeBinary(fixed);
     }
 
     private String fixBlockState(String blockState, int srcVer) {
@@ -180,10 +180,11 @@ class FabricDataConverters extends DataFixerBuilder implements com.sk89q.worlded
                 .asString().result().orElse(key);
     }
 
+    private final FabricFaweAdapter adapter;
     private static final NbtOps OPS_NBT = NbtOps.INSTANCE;
     private static final int LEGACY_VERSION = 1343;
     private static int DATA_VERSION;
-    private static FabricDataConverters INSTANCE;
+    static FabricDataConverters INSTANCE;
 
     private final Map<LegacyType, List<DataConverter>> converters = new EnumMap<>(LegacyType.class);
     private final Map<LegacyType, List<DataInspector>> inspectors = new EnumMap<>(LegacyType.class);
@@ -214,10 +215,11 @@ class FabricDataConverters extends DataFixerBuilder implements com.sk89q.worlded
         }
     }
 
-    FabricDataConverters(int dataVersion) {
+    public FabricDataConverters(int dataVersion, FabricFaweAdapter adapter) {
         super(dataVersion);
         DATA_VERSION = dataVersion;
         INSTANCE = this;
+        this.adapter = adapter;
         registerConverters();
         registerInspectors();
         this.fixer = new WrappedDataFixer(DataFixers.getDataFixer());

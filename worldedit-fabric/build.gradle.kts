@@ -3,22 +3,6 @@ import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.configuration.providers.minecraft.SingleJarMinecraftProvider.server
 import net.fabricmc.loom.task.RemapJarTask
 
-/*
-buildscript {
-    repositories {
-        mavenCentral()
-        maven {
-            name = "Fabric"
-            url = uri("https://maven.fabricmc.net/")
-        }
-    }
-    dependencies {
-        classpath("net.fabricmc:fabric-loom:1.1-SNAPSHOT")
-    }
-}
-
-*/
-
 plugins {
     id("fabric-loom")
     `java-library`
@@ -76,6 +60,9 @@ repositories {
             includeGroup("maven.modrinth")
         }
     }
+    flatDir {
+        dirs("libs")
+    }
 }
 
 dependencies {
@@ -86,10 +73,10 @@ dependencies {
     "mappings"(loom.officialMojangMappings())
     "modImplementation"("net.fabricmc:fabric-loader:$loaderVersion")
 
-    api("org.xerial:sqlite-jdbc:3.7.2")
-    implementation(libs.fastutil)
-    compileOnly("net.kyori:adventure-api")
-    implementation("org.yaml:snakeyaml")
+    api("org.xerial:sqlite-jdbc:3.42.0.1")
+    "implementation"(libs.fastutil)
+    "compileOnly"("net.kyori:adventure-api")
+    "implementation"("org.yaml:snakeyaml")
     api(libs.lz4Java) { isTransitive = false }
     api("net.jpountz.lz4:lz4:1.0.0")
     api(libs.sparsebitset)
@@ -98,7 +85,7 @@ dependencies {
     //implementation("dev.notmyfault.serverlib:ServerLib")
     "modImplementation"("xyz.nucleoid:stimuli:0.4.8+1.20.1")
     "modImplementation"("maven.modrinth:starlight:1.1.2+1.20")
-
+    modCompileOnly("name:fabric-4.0-SNAPSHOT")
     // [1] declare fabric-api dependency...
     "modImplementation"("net.fabricmc.fabric-api:fabric-api:0.92.2+1.20.1")
     /*
@@ -188,7 +175,7 @@ tasks.named<ShadowJar>("shadowJar") {
         relocate("org.anarres", "com.fastasyncworldedit.core.internal.io") {
             include(dependency("org.anarres:parallelgzip:1.0.5"))
         }
-        include(dependency("org.xerial:sqlite-jdbc:3.7.2"))
+        include(dependency("org.xerial:sqlite-jdbc:3.42.0.1"))
         include(dependency("org.yaml:snakeyaml"))
         include(dependency(libs.sparsebitset.get()))
         include(dependency("com.github.luben:zstd-jni"))

@@ -23,12 +23,10 @@ import com.sk89q.worldedit.entity.BaseEntity;
 import com.sk89q.worldedit.entity.Entity;
 import com.sk89q.worldedit.entity.metadata.EntityProperties;
 import com.sk89q.worldedit.extent.Extent;
-import com.sk89q.worldedit.fabric.internal.NBTConverter;
 import com.sk89q.worldedit.math.Vector3;
 import com.sk89q.worldedit.util.Location;
 import com.sk89q.worldedit.world.NullWorld;
 import com.sk89q.worldedit.world.entity.EntityTypes;
-import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
@@ -56,7 +54,7 @@ public class FabricEntity implements Entity {
         ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
         CompoundTag tag = new CompoundTag();
         entity.saveWithoutId(tag);
-        return new BaseEntity(EntityTypes.get(id.toString()), (com.sk89q.jnbt.CompoundTag) NBTConverter.toNative(tag));
+        return new BaseEntity(EntityTypes.get(id.toString()), (com.sk89q.jnbt.CompoundTag) FabricWorldEdit.inst.getFaweAdapter().toNative(tag));
     }
 
     @Override

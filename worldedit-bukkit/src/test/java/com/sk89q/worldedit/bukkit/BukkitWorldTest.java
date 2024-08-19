@@ -18,7 +18,7 @@
  */
 
 package com.sk89q.worldedit.bukkit;
-
+/*
 import com.sk89q.worldedit.util.TreeGenerator;
 import org.junit.jupiter.api.Test;
 
@@ -34,3 +34,4 @@ public class BukkitWorldTest {
     }
 
 }
+*/

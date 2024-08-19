@@ -27,7 +27,7 @@ import com.fastasyncworldedit.core.queue.implementation.preloader.AsyncPreloader
 import com.fastasyncworldedit.core.queue.implementation.preloader.Preloader;
 import com.fastasyncworldedit.core.regions.FaweMaskManager;
 import com.fastasyncworldedit.core.util.TaskManager;
-import com.fastasyncworldedit.core.util.UpdateNotification;
+import com.fastasyncworldedit.core.util.WEManager;
 import com.mojang.brigadier.CommandDispatcher;
 import com.sk89q.worldedit.LocalSession;
 import com.sk89q.worldedit.WorldEdit;
@@ -36,11 +36,13 @@ import com.sk89q.worldedit.event.platform.PlatformReadyEvent;
 import com.sk89q.worldedit.event.platform.PlatformUnreadyEvent;
 import com.sk89q.worldedit.event.platform.PlatformsRegisteredEvent;
 import com.sk89q.worldedit.event.platform.SessionIdleEvent;
+import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extension.platform.Capability;
 import com.sk89q.worldedit.extension.platform.Platform;
 import com.sk89q.worldedit.extension.platform.PlatformManager;
 import com.sk89q.worldedit.fabric.fawe.FabricFaweAdapter;
 import com.sk89q.worldedit.fabric.fawe.FabricPlatformAdapter;
+import com.sk89q.worldedit.fabric.fawe.plotsquared.PlotSquaredFeature;
 import com.sk89q.worldedit.fabric.net.handler.WECUIPacketHandler;
 import com.sk89q.worldedit.internal.anvil.ChunkDeleter;
 import com.sk89q.worldedit.internal.util.LogManagerCompat;
@@ -49,7 +51,6 @@ import com.sk89q.worldedit.util.lifecycle.Lifecycled;
 import com.sk89q.worldedit.util.lifecycle.SimpleLifecycled;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BlockCategory;
-import com.sk89q.worldedit.world.block.BlockTypesCache;
 import com.sk89q.worldedit.world.entity.EntityType;
 import com.sk89q.worldedit.world.fluid.FluidType;
 import com.sk89q.worldedit.world.item.ItemCategory;
@@ -60,7 +61,6 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.PacketSender;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
@@ -70,8 +70,6 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Registry;
-import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -87,13 +85,13 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import org.apache.logging.log4j.Logger;
 import org.enginehub.piston.Command;
+import xyz.nucleoid.stimuli.Stimuli;
+import xyz.nucleoid.stimuli.event.item.ItemUseEvent;
 
 import java.io.File;
 import java.io.IOException;
@@ -131,6 +129,7 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         ServerLifecycleEvents.SERVER_STOPPING.register(__ -> lifecycledServer.invalidate());
         LIFECYCLED_SERVER = lifecycledServer;
     }
+
     public static MinecraftServer server;
     private FabricPermissionsProvider provider;
 
@@ -157,7 +156,7 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
     @Override
     public void onInitialize() {
         this.container = FabricLoader.getInstance().getModContainer("worldedit").orElseThrow(
-            () -> new IllegalStateException("WorldEdit mod missing in Fabric")
+                () -> new IllegalStateException("WorldEdit mod missing in Fabric")
         );
 
         // Setup working directory
@@ -174,6 +173,7 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         WorldEdit.getInstance().getPlatformManager().register(platform);
 
         config = new FabricConfiguration(this);
+        config.load();
 
         this.provider = getInitialPermissionsProvider();
         this.platformAdapter = new FabricPlatformAdapter();
@@ -186,17 +186,22 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         ServerTickEvents.END_SERVER_TICK.register(ThreadSafeCache.getInstance());
         CommandRegistrationCallback.EVENT.register(this::registerCommands);
         ServerLifecycleEvents.SERVER_STARTING.register(this::onStartingServer);
-        ServerLifecycleEvents.SERVER_STARTED.register(this::onStartServer);
         ServerLifecycleEvents.SERVER_STOPPING.register(this::onStopServer);
         ServerPlayConnectionEvents.JOIN.register(this::onPlayerJoin);
         ServerPlayConnectionEvents.DISCONNECT.register(this::onPlayerDisconnect);
         AttackBlockCallback.EVENT.register(this::onLeftClickBlock);
         UseBlockCallback.EVENT.register(this::onRightClickBlock);
-        UseItemCallback.EVENT.register(this::onRightClickAir);
+        //UseItemCallback.EVENT.register(this::onRightClickAir);
+        Stimuli.global().listen(ItemUseEvent.EVENT, this::onRightClickAir);
+        ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
         LOGGER.info("WorldEdit for Fabric (version " + getInternalVersion() + ") is loaded");
     }
 
-    private void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext registryAccess, Commands.CommandSelection environment) {
+    private void registerCommands(
+            CommandDispatcher<CommandSourceStack> dispatcher,
+            CommandBuildContext registryAccess,
+            Commands.CommandSelection environment
+    ) {
         WorldEdit.getInstance().getEventBus().post(new PlatformsRegisteredEvent());
         PlatformManager manager = WorldEdit.getInstance().getPlatformManager();
         Platform commandsPlatform = manager.queryCapability(Capability.USER_COMMANDS);
@@ -206,16 +211,26 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         }
 
         List<Command> commands = manager.getPlatformCommandManager().getCommandManager()
-            .getAllCommands().toList();
+                .getAllCommands().toList();
         for (Command command : commands) {
             CommandWrapper.register(dispatcher, command);
             Set<String> perms = command.getCondition().as(PermissionCondition.class)
-                .map(PermissionCondition::getPermissions)
-                .orElseGet(Collections::emptySet);
+                    .map(PermissionCondition::getPermissions)
+                    .orElseGet(Collections::emptySet);
             if (!perms.isEmpty()) {
                 perms.forEach(getPermissionsProvider()::registerPermission);
             }
         }
+    }
+
+    public Actor wrapCommandSender(CommandSourceStack sender) {
+        if (sender.isPlayer()) {
+            return wrapPlayer(sender.getPlayer());
+        } else if (!sender.isPlayer()) {
+            return new FabricBlockCommandSender(WorldEdit.getInstance(), sender);
+        }
+
+        return new FabricCommandSender(WorldEdit.getInstance(), sender);
     }
 
     private FabricPermissionsProvider getInitialPermissionsProvider() {
@@ -258,42 +273,41 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
                 ItemCategory.REGISTRY.register(name.toString(), new ItemCategory(name.toString()));
             }
         });
-        for(ResourceLocation name : BuiltInRegistries.FLUID.keySet()) {
+        for (ResourceLocation name : BuiltInRegistries.FLUID.keySet()) {
             if (FluidType.REGISTRY.get(name.toString()) == null) {
                 FluidType.REGISTRY.register(name.toString(), new FluidType(name.toString()));
             }
         }
     }
 
-    private void onStartingServer(MinecraftServer minecraftServer) {
-        server = minecraftServer;
-       // if(!initialized) {
-        ServerTickEvents.END_SERVER_TICK.register(FabricTaskManager.tickListener::OnServerTick);
-            try {
-                Fawe.set(this);
-                Fawe.setupInjector();
-            } catch (Throwable e) {
-                e.printStackTrace();
-            }
-            final Path delChunks = workingDir.resolve(DELCHUNKS_FILE_NAME);
-            if (Files.exists(delChunks)) {
-                ChunkDeleter.runFromFile(delChunks, true);
-            }
-     //   }
+    private void onServerStarted(MinecraftServer minecraftServer) {
+        TaskManager.taskManager().later(this::setupPlotSquared, 0);
     }
 
-    private void onStartServer(MinecraftServer minecraftServer) {
-       // if(!initialized) {
-            this.setupRegistries(minecraftServer);
-            this.config.load();
-            WorldEdit.getInstance().getEventBus().post(new PlatformReadyEvent(this.platform));
-            WorldEdit.getInstance().loadMappings();
-           // if (!this.getFaweAdapter().isInitialised()) {
-                this.getFaweAdapter().init();
-          //  }
-           // this.initialized = true;
-     //   }
+    private void onStartingServer(MinecraftServer minecraftServer) {
+        server = minecraftServer;
+        // if(!initialized) {
+        ServerTickEvents.END_SERVER_TICK.register(FabricTaskManager.tickListener::OnServerTick);
+        try {
+            Fawe.set(this);
+            Fawe.setupInjector();
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+        final Path delChunks = workingDir.resolve(DELCHUNKS_FILE_NAME);
+        if (Files.exists(delChunks)) {
+            ChunkDeleter.runFromFile(delChunks, true);
+        }
+        this.setupRegistries(minecraftServer);
+        WorldEdit.getInstance().getEventBus().post(new PlatformReadyEvent(this.platform));
+        WorldEdit.getInstance().loadMappings();
+        // if (!this.getFaweAdapter().isInitialised()) {
+        this.getFaweAdapter().init();
+        //  }
+        // this.initialized = true;
+        //   }
         Fawe.instance().setMainThread();
+        //   }
     }
 
     private void onStopServer(MinecraftServer minecraftServer) {
@@ -315,9 +329,6 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
             synchronized (player) {
                 wePlayer = getCachedPlayer(player);
                 if (wePlayer == null) {
-
-
-
                     wePlayer = new FabricPlayer(player);
                     FabricPlayerCache.put(player.getUUID(), wePlayer);
                     return wePlayer;
@@ -327,6 +338,7 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         return wePlayer;
         //FAWE end
     }
+
     FabricPlayer getCachedPlayer(ServerPlayer player) {
         return FabricPlayerCache.get(player.getUUID());
     }
@@ -347,7 +359,13 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         return !platform.isHookingEvents(); // We have to be told to catch these events
     }
 
-    private InteractionResult onLeftClickBlock(Player playerEntity, Level world, InteractionHand hand, BlockPos blockPos, Direction direction) {
+    private InteractionResult onLeftClickBlock(
+            Player playerEntity,
+            Level world,
+            InteractionHand hand,
+            BlockPos blockPos,
+            Direction direction
+    ) {
         if (shouldSkip() || hand == InteractionHand.OFF_HAND || world.isClientSide) {
             return InteractionResult.PASS;
         }
@@ -355,7 +373,8 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         WorldEdit we = WorldEdit.getInstance();
         FabricPlayer player = adaptPlayer((ServerPlayer) playerEntity);
         FabricWorld localWorld = getWorld(world.getServer().getLevel(world.dimension()));
-        Location pos = new Location(localWorld,
+        Location pos = new Location(
+                localWorld,
                 blockPos.getX(),
                 blockPos.getY(),
                 blockPos.getZ()
@@ -373,15 +392,20 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         return InteractionResult.PASS;
     }
 
-    private InteractionResult onRightClickBlock(Player playerEntity, Level world, InteractionHand hand, BlockHitResult blockHitResult) {
+    private InteractionResult onRightClickBlock(
+            Player playerEntity,
+            Level world,
+            InteractionHand hand,
+            BlockHitResult blockHitResult
+    ) {
         if (shouldSkip() || hand == InteractionHand.OFF_HAND || world.isClientSide) {
             return InteractionResult.PASS;
         }
-
         WorldEdit we = WorldEdit.getInstance();
         FabricPlayer player = adaptPlayer((ServerPlayer) playerEntity);
         FabricWorld localWorld = getWorld(world.getServer().getLevel(world.dimension()));
-        Location pos = new Location(localWorld,
+        Location pos = new Location(
+                localWorld,
                 blockHitResult.getBlockPos().getX(),
                 blockHitResult.getBlockPos().getY(),
                 blockHitResult.getBlockPos().getZ()
@@ -399,23 +423,21 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         return InteractionResult.PASS;
     }
 
-    private InteractionResultHolder<ItemStack> onRightClickAir(Player playerEntity, Level world, InteractionHand hand) {
-        if(isPlayerLookingAtBlock(playerEntity, world)) {
+    private InteractionResultHolder<ItemStack> onRightClickAir(Player playerEntity, InteractionHand hand) {
+        if (isPlayerLookingAtBlock(playerEntity, playerEntity.level())) {
             return InteractionResultHolder.pass(playerEntity.getItemInHand(hand));
         }
 
         ItemStack stackInHand = playerEntity.getItemInHand(hand);
-        if (shouldSkip() || hand == InteractionHand.OFF_HAND || world.isClientSide) {
+        if (shouldSkip() || hand == InteractionHand.OFF_HAND || playerEntity.level().isClientSide) {
             return InteractionResultHolder.pass(stackInHand);
         }
-
         WorldEdit we = WorldEdit.getInstance();
         FabricPlayer player = adaptPlayer((ServerPlayer) playerEntity);
 
         if (we.handleRightClick(player)) {
             return InteractionResultHolder.success(stackInHand);
         }
-
         return InteractionResultHolder.pass(stackInHand);
     }
 
@@ -426,7 +448,7 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         Vec3 lookVector = player.getViewVector(1.0f); // Get the player's looking direction
 
         // Create a raycast context
-         ClipContext raycastContext = new ClipContext(
+        ClipContext raycastContext = new ClipContext(
                 playerPos,
                 playerPos.add(lookVector.scale(5.0f)), // Adjust the multiplier for desired ray length
                 ClipContext.Block.OUTLINE,
@@ -439,8 +461,9 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
 
         return blockHitResult.getType() != HitResult.Type.MISS;
     }
+
     private void onPlayerDisconnect(ServerGamePacketListenerImpl handler, MinecraftServer server) {
-        FabricPlayerCache.get(handler.player.getUUID()).unregister();
+       FabricAdapter.adaptPlayer(handler.player).unregister();
 
         WorldEdit.getInstance().getEventBus()
                 .post(new SessionIdleEvent(new FabricPlayer.SessionKeyImpl(handler.player)));
@@ -457,7 +480,9 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
         // string value indescriminate of player a player relogging) means that a FabricPlayer caching an old player object
         // will be kept, cached and retrieved by FAWE. Adding a simple memory-based equality check when the player rejoins,
         // and then "invaliding" (redoing) the cache if the players are not equal, fixes this.
-        player = this.reCachePlayer(serverGamePacketListener.player);
+        if(player.getPlayer() != serverGamePacketListener.player) {
+            player = this.reCachePlayer(serverGamePacketListener.player);
+        }
         LocalSession session;
         if ((session = WorldEdit.getInstance().getSessionManager().getIfPresent(player)) != null) {
             session.loadDefaults(player, true);
@@ -549,7 +574,6 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
     }
 
 
-
     @Override
     public Preloader getPreloader(final boolean initialise) {
         return this.preloader == null && initialise ? (this.preloader = new AsyncPreloader()) : this.preloader;
@@ -588,6 +612,14 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
 
     public FabricFaweAdapter getFaweAdapter() {
         return this.adapter;
+    }
+
+    private void setupPlotSquared() {
+        if (FabricLoader.getInstance().getModContainer("plotsquared-fabric").isPresent()) {
+            WEManager.weManager().addManager(new PlotSquaredFeature());
+            LOGGER.info("Mod 'PlotSquared-Fabric' found. Using it now.");
+        }
+
     }
 
 }
