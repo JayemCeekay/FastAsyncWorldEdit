@@ -8,6 +8,7 @@ import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldedit.world.block.BlockTypesCache;
 
 import javax.annotation.Nullable;
 import java.util.Map;
@@ -71,7 +72,7 @@ public interface IBatchProcessor {
                         DataArray arr = set.loadIfPresent(layer);
                         if (arr != null) {
                             int index = (minY & 15) << 8;
-                            arr.setRange(0, index, 0);
+                            arr.setRange(0, index, BlockTypesCache.ReservedIDs.__RESERVED__);
                         } else {
                             arr = DataArray.createEmpty();
                         }
@@ -87,7 +88,7 @@ public interface IBatchProcessor {
                         DataArray arr = set.loadIfPresent(layer);
                         if (arr != null) {
                             int index = ((maxY + 1) & 15) << 8;
-                            arr.setRange(index, DataArray.CHUNK_SECTION_SIZE, 0);
+                            arr.setRange(index, DataArray.CHUNK_SECTION_SIZE, BlockTypesCache.ReservedIDs.__RESERVED__);
                         } else {
                             arr = DataArray.createEmpty();
                         }
@@ -126,14 +127,14 @@ public interface IBatchProcessor {
                 DataArray arr = set.loadIfPresent(layer);
                 if (arr != null) {
                     int index = (minY & 15) << 8;
-                    arr.setRange(index, DataArray.CHUNK_SECTION_SIZE, 0);
+                    arr.setRange(index, DataArray.CHUNK_SECTION_SIZE, BlockTypesCache.ReservedIDs.__RESERVED__);
                 }
                 set.setBlocks(layer, arr);
             } else if (layer == maxLayer) {
                 DataArray arr = set.loadIfPresent(layer);
                 if (arr != null) {
                     int index = ((maxY + 1) & 15) << 8;
-                    arr.setRange(0, index, 0);
+                    arr.setRange(0, index, BlockTypesCache.ReservedIDs.__RESERVED__);
                 }
                 set.setBlocks(layer, arr);
             } else {

@@ -1,6 +1,7 @@
 package com.fastasyncworldedit.core.queue.implementation.blocks;
 
 import com.fastasyncworldedit.core.Fawe;
+import com.fastasyncworldedit.core.FaweCache;
 import com.fastasyncworldedit.core.extent.processor.heightmap.HeightMapType;
 import com.fastasyncworldedit.core.math.BlockVector3ChunkMap;
 import com.fastasyncworldedit.core.queue.IBlocks;
@@ -15,6 +16,7 @@ import com.sk89q.worldedit.world.block.BlockTypesCache;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 
+import javax.xml.crypto.Data;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -90,12 +92,19 @@ public class ThreadUnsafeIntBlocks  implements IChunkSet, IBlocks {
     public DataArray load(int layer) {
         updateSectionIndexRange(layer);
         layer -= minSectionPosition;
-        return blocks[layer];
+        DataArray arr = blocks[layer];
+        if (arr == null) {
+            arr = blocks[layer] = DataArray.createFilled(FaweCache.INSTANCE.BLOCKS_PER_LAYER);
+        }
+        return arr;
     }
 
     @Nullable
     @Override
     public DataArray loadIfPresent(int layer) {
+        if (layer < minSectionPosition || layer > maxSectionPosition) {
+            return null;
+        }
         layer -= minSectionPosition;
         return blocks[layer];
     }

@@ -413,7 +413,7 @@ public interface Region extends Iterable<BlockVector3>, Cloneable, IBatchProcess
                     if (arr == null) {
                         continue;
                     }
-                    processCuboid(set, layer, arr);
+                    processCuboid(set, layer, arr, bx, by, bz);
                 }
             }
             if (processExtra) {
@@ -425,11 +425,11 @@ public interface Region extends Iterable<BlockVector3>, Cloneable, IBatchProcess
         }
     }
 
-    private void processCuboid(IChunkSet set, int layer, DataArray dataArray) {
+    private void processCuboid(IChunkSet set, int layer, DataArray dataArray, int bx, int by, int bz) {
         for (int y = 0, index = 0; y < 16; y++) {
             for (int z = 0; z < 16; z++) {
                 for (int x = 0; x < 16; x++, index++) {
-                    if (dataArray.getAt(index) != BlockTypesCache.ReservedIDs.__RESERVED__ && !contains(x, y, z)) {
+                    if (dataArray.getAt(index) != BlockTypesCache.ReservedIDs.__RESERVED__ && !contains(bx + x, by + y, bz + z)) {
                         dataArray.setAt(index, BlockTypesCache.ReservedIDs.__RESERVED__);
                     }
                 }

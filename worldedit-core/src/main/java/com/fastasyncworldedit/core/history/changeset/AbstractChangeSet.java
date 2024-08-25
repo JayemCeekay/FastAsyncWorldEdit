@@ -187,7 +187,7 @@ public abstract class AbstractChangeSet implements ChangeSet, IBatchProcessor {
                         }
                         final int combinedFrom = from;
                         final int combinedTo = blocksSet.getAt(index);
-                        if (combinedTo != 0) {
+                        if (combinedTo != BlockTypesCache.ReservedIDs.__RESERVED__) {
                             add(xx, yy, zz, combinedFrom, combinedTo);
                         }
                     }

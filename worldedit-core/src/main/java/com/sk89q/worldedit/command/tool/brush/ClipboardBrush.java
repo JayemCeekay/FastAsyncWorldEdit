@@ -78,7 +78,7 @@ public class ClipboardBrush implements Brush {
         this.pasteEntities = pasteEntities;
         this.pasteBiomes = pasteBiomes;
         this.sourceMask = sourceMask;
-        this.randomRotate = true;
+        this.randomRotate = randomRotate;
     }
 
     @Override

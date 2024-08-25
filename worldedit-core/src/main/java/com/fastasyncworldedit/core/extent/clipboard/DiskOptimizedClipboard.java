@@ -26,6 +26,7 @@ import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockStateHolder;
 import com.sk89q.worldedit.world.block.BlockTypes;
+import com.sk89q.worldedit.world.block.BlockTypesCache;
 import org.apache.logging.log4j.Logger;
 
 import java.io.ByteArrayOutputStream;
@@ -733,8 +734,8 @@ public class DiskOptimizedClipboard extends LinearClipboard {
             try {
                 int index = headerSize + (getIndex(x, y, z) << 2);
                 int ordinal = block.getOrdinal();
-                if (ordinal == 0) {
-                    ordinal = 1;
+                if (ordinal == BlockTypesCache.ReservedIDs.__RESERVED__) {
+                    ordinal = BlockTypesCache.ReservedIDs.AIR;
                 }
                 byteBuffer.putInt(index, ordinal);
                 boolean hasNbt = block instanceof BaseBlock && block.hasNbtData();
