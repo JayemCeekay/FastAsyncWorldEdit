@@ -83,7 +83,8 @@ public class RollbackDatabase extends AsyncNotifyQueue {
 
     public Future<Integer> delete(UUID uuid, int id) {
         return call(() -> {
-            try (PreparedStatement stmt = connection.prepareStatement("DELETE FROM`" + this.prefix + "edits` WHERE `player`=? AND `id`=?")) {
+            try (PreparedStatement stmt = connection.prepareStatement("DELETE FROM`" + this.prefix + "edits` WHERE `player`=? " +
+                    "AND `id`=?")) {
                 stmt.setBytes(1, toBytes(uuid));
                 stmt.setInt(2, id);
                 return stmt.executeUpdate();
@@ -159,23 +160,18 @@ public class RollbackDatabase extends AsyncNotifyQueue {
         Future<Integer> future = call(() -> {
             try {
                 int count = 0;
-                String stmtStr = """
-                                SELECT * FROM `%sedits`
-                                  WHERE `time` > ?
-                                    AND `x2` >= ?
-                                    AND `x1` <= ?
-                                    AND `z2` >= ?
-                                    AND `z1` <= ?
-                                    AND `y2` >= ?
-                                    AND `y1` <= ?
-                                """;
-                if (uuid != null) {
-                    stmtStr += "\n    AND `player`= ?";
-                }
+                String stmtStr;
                 if (ascending) {
-                    stmtStr += "\n  ORDER BY `time` ASC, `id` ASC";
+                    if (uuid == null) {
+                        stmtStr = "SELECT * FROM`%sedits` WHERE `time`>? AND `x2`>=? AND `x1`<=? AND `z2`>=? AND `z1`<=? AND " +
+                                "`y2`>=? AND `y1`<=? ORDER BY `time` , `id`";
+                    } else {
+                        stmtStr = "SELECT * FROM`%sedits` WHERE `time`>? AND `x2`>=? AND `x1`<=? AND `z2`>=? AND `z1`<=? AND " +
+                                "`y2`>=? AND `y1`<=? AND `player`=? ORDER BY `time` ASC, `id` ASC";
+                    }
                 } else {
-                    stmtStr += "\n  ORDER BY `time` DESC, `id` DESC";
+                    stmtStr = "SELECT * FROM`%sedits` WHERE `time`>? AND `x2`>=? AND `x1`<=? AND `z2`>=? AND `z1`<=? AND " +
+                            "`y2`>=? AND `y1`<=? AND `player`=? ORDER BY `time` DESC, `id` DESC";
                 }
                 try (PreparedStatement stmt = connection.prepareStatement(stmtStr.formatted(this.prefix))) {
                     stmt.setInt(1, (int) (minTime / 1000));

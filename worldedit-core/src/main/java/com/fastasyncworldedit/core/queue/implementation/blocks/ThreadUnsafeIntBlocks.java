@@ -107,7 +107,7 @@ public class ThreadUnsafeIntBlocks  implements IChunkSet, IBlocks {
 
     @Override
     public CompoundTag getTile(int x, int y, int z) {
-        return tiles.get(x, y, z);
+        return tiles == null ? null : tiles.get(x, y, z);
     }
 
     @Override

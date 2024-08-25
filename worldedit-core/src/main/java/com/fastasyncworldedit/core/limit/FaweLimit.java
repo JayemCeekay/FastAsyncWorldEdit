@@ -2,6 +2,7 @@ package com.fastasyncworldedit.core.limit;
 
 import com.fastasyncworldedit.core.FaweCache;
 
+import java.util.Collections;
 import java.util.Set;
 
 public class FaweLimit {
@@ -20,10 +21,10 @@ public class FaweLimit {
     public boolean FAST_PLACEMENT = false;
     public boolean CONFIRM_LARGE = true;
     public boolean RESTRICT_HISTORY_TO_REGIONS = true;
-    public Set<String> STRIP_NBT = null;
+    public Set<String> STRIP_NBT = Collections.emptySet();
     public boolean UNIVERSAL_DISALLOWED_BLOCKS = true;
-    public Set<String> DISALLOWED_BLOCKS = null;
-    public Set<PropertyRemap<?>> REMAP_PROPERTIES = null;
+    public Set<String> DISALLOWED_BLOCKS = Collections.emptySet();
+    public Set<PropertyRemap<?>> REMAP_PROPERTIES = Collections.emptySet();
 
     public static FaweLimit MAX;
 
@@ -241,7 +242,7 @@ public class FaweLimit {
                 && FAST_PLACEMENT
                 && !RESTRICT_HISTORY_TO_REGIONS
                 && (STRIP_NBT == null || STRIP_NBT.isEmpty())
-                && !UNIVERSAL_DISALLOWED_BLOCKS
+                // && !UNIVERSAL_DISALLOWED_BLOCKS --> do not include this, it effectively has no relevance
                 && (DISALLOWED_BLOCKS == null || DISALLOWED_BLOCKS.isEmpty())
                 && (REMAP_PROPERTIES == null || REMAP_PROPERTIES.isEmpty());
     }

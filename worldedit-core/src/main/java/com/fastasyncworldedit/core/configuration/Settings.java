@@ -102,11 +102,10 @@ public class Settings extends Config {
 
     public FaweLimit getLimit(Actor actor) {
         FaweLimit limit;
-        if (actor.hasPermission("fawe.limit.*") || actor.hasPermission("fawe.bypass")) {
-            limit = FaweLimit.MAX.copy();
-        } else {
-            limit = new FaweLimit();
+        if (actor.hasPermission("fawe.bypass") || actor.hasPermission("fawe.limit.unlimited")) {
+            return FaweLimit.MAX.copy();
         }
+        limit = new FaweLimit();
         ArrayList<String> keys = new ArrayList<>(LIMITS.getSections());
         if (keys.remove("default")) {
             keys.add("default");
@@ -394,6 +393,7 @@ public class Settings extends Config {
                 "Where block properties are specified, any blockstate with the property will be disallowed (e.g. all directions",
                 "of a waterlogged fence). For blocking/remapping of all occurrences of a property like waterlogged, see",
                 "remap-properties below.",
+                "To generate a blank list, substitute the default content with a set of square brackets [] instead.",
                 "Example block property blocking:",
                 " - \"minecraft:conduit[waterlogged=true]\"",
                 " - \"minecraft:piston[extended=false,facing=west]\"",
@@ -694,7 +694,7 @@ public class Settings extends Config {
     public static class TICK_LIMITER {
 
         @Comment("Enable the limiter")
-        public boolean ENABLED = true;
+        public boolean ENABLED = false;
         @Comment("The interval in ticks")
         public int INTERVAL = 20;
         @Comment("Max falling blocks per interval (per chunk)")
@@ -703,12 +703,6 @@ public class Settings extends Config {
         public int PHYSICS_MS = 10;
         @Comment("Max item spawns per interval (per chunk)")
         public int ITEMS = 256;
-        @Comment({
-                "Whether fireworks can load chunks",
-                " - Fireworks usually travel vertically so do not load any chunks",
-                " - Horizontal fireworks can be hacked in to crash a server"
-        })
-        public boolean FIREWORKS_LOAD_CHUNKS = false;
 
     }
 
@@ -740,7 +734,13 @@ public class Settings extends Config {
                 " - Requires clipboard.use-disk to be enabled"
         })
         public boolean SAVE_CLIPBOARD_NBT_TO_DISK = true;
-
+        @Comment({
+                "Apply a file lock on the clipboard file (only relevant if clipboad.on-disk is enabled)",
+                " - Prevents other processes using the file whilst in use by FAWE",
+                " - This extends to other servers, useful if you have multiple servers using a unified clipboard folder",
+                " - May run into issues where a file lock is not correctly lifted"
+        })
+        public boolean LOCK_CLIPBOARD_FILE = false;
     }
 
     public static class LIGHTING {
