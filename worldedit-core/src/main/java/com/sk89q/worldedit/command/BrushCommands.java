@@ -134,6 +134,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.FileSystems;
 import java.util.List;
@@ -521,11 +522,9 @@ public class BrushCommands {
             @Switch(name = 'a', desc = "Use image Alpha") boolean alpha,
             @Switch(name = 'f', desc = "Blend the image with existing terrain") boolean fadeOut
     )
-            throws WorldEditException, IOException {
+            throws WorldEditException, IOException, URISyntaxException {
         URL url = new URL(imageURL);
-        if (!url.getHost().equalsIgnoreCase("i.imgur.com")) {
-            throw new IOException("Only i.imgur.com links are allowed!");
-        }
+        MainUtil.checkImageHost(url.toURI());
         BufferedImage image = MainUtil.readImage(url);
         worldEdit.checkMaxBrushRadius(radius);
         if (yscale != 1) {
@@ -1259,13 +1258,12 @@ public class BrushCommands {
 
     @Command(
             name = "clipboard",
-            desc = "@Deprecated use instead: `/br copypaste`)",
+            desc = "Paste your clipboard at the brush location. Includes any transforms.",
             descFooter = "Choose the clipboard brush.\n"
                     + "Without the -o flag, the paste will appear centered at the target location. "
                     + "With the flag, then the paste will appear relative to where you had "
                     + "stood relative to the copied area when you copied it."
     )
-    @Deprecated
     @CommandPermissions("worldedit.brush.clipboard")
     public void clipboardBrush(
             Player player, LocalSession session,
@@ -1279,7 +1277,11 @@ public class BrushCommands {
                     boolean pasteBiomes,
             @ArgFlag(name = 'm', desc = "Skip blocks matching this mask in the clipboard")
             @ClipboardMask
-                    Mask sourceMask, InjectedValueAccess context
+            Mask sourceMask, InjectedValueAccess context,
+            //FAWE start - random rotation
+            @Switch(name = 'r', desc = "Apply random rotation on paste, combines with existing clipboard transforms")
+            boolean randomRotate
+            //FAWE end
     ) throws WorldEditException {
         ClipboardHolder holder = session.getClipboard();
 
@@ -1295,9 +1297,9 @@ public class BrushCommands {
 
         set(
                 context,
-                new ClipboardBrush(newHolder, ignoreAir, usingOrigin, pasteEntities, pasteBiomes,
-                        sourceMask
-                ),
+                //FAWE start - random rotation
+                new ClipboardBrush(newHolder, ignoreAir, usingOrigin, pasteEntities, pasteBiomes, sourceMask, randomRotate),
+                //FAWE end
                 "worldedit.brush.clipboard"
         );
     }

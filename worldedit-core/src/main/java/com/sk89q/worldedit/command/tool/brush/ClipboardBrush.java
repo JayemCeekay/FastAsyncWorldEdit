@@ -43,8 +43,9 @@ public class ClipboardBrush implements Brush {
     private final boolean pasteBiomes;
     private final Mask sourceMask;
     //FAWE start - random rotation
-    private boolean randomRotate;
+    private final boolean randomRotate;
     //FAWE end
+
 
     public ClipboardBrush(ClipboardHolder holder, boolean ignoreAirBlocks, boolean usingOrigin) {
         this.holder = holder;
@@ -77,6 +78,7 @@ public class ClipboardBrush implements Brush {
         this.pasteEntities = pasteEntities;
         this.pasteBiomes = pasteBiomes;
         this.sourceMask = sourceMask;
+        this.randomRotate = true;
     }
 
     @Override

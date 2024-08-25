@@ -16,7 +16,6 @@ import com.sk89q.worldedit.world.block.BlockTypesCache;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -88,7 +87,7 @@ public class DataArraySetBlocks extends DataArrayBlocks implements IChunkSet {
 
     @Override
     public Map<HeightMapType, int[]> getHeightMaps() {
-        return heightMaps == null ? new HashMap<>() : heightMaps;
+        return heightMaps == null ? new EnumMap<>(HeightMapType.class) : heightMaps;
     }
 
     @Override
@@ -172,7 +171,7 @@ public class DataArraySetBlocks extends DataArrayBlocks implements IChunkSet {
     @Override
     public void setHeightMap(HeightMapType type, int[] heightMap) {
         if (heightMaps == null) {
-            heightMaps = new HashMap<>();
+            heightMaps = new EnumMap<>(HeightMapType.class);
         }
         heightMaps.put(type, heightMap);
     }
