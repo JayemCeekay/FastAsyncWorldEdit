@@ -139,7 +139,7 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
         } else {
             ServerPlayer entity = FabricWorldEdit.server
                     .getPlayerList().getPlayerByName(player.getName());
-            return entity != null ? new FabricPlayer(entity) : null;
+            return entity != null ? FabricWorldEdit.inst.wrapPlayer(entity) : null;
         }
     }
 
@@ -251,7 +251,7 @@ class FabricPlatform extends AbstractPlatform implements MultiUserPlatform {
         PlayerList scm = FabricWorldEdit.server.getPlayerList();
         for (ServerPlayer entity : scm.getPlayers()) {
             if (entity != null) {
-                users.add(new FabricPlayer(entity));
+                users.add(FabricWorldEdit.inst.wrapPlayer(entity));
             }
         }
         return users;

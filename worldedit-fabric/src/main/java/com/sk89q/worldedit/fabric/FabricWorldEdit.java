@@ -507,7 +507,7 @@ public class FabricWorldEdit implements ModInitializer, IFawe {
      */
     public LocalSession getSession(ServerPlayer player) {
         checkNotNull(player);
-        return WorldEdit.getInstance().getSessionManager().get(adaptPlayer(player));
+        return WorldEdit.getInstance().getSessionManager().get(wrapPlayer(player));
     }
 
     /**

@@ -14,6 +14,7 @@ import com.sk89q.jnbt.IntTag;
 import com.sk89q.jnbt.ListTag;
 import com.sk89q.jnbt.NBTInputStream;
 import com.sk89q.jnbt.NBTOutputStream;
+import com.sk89q.jnbt.StringTag;
 import com.sk89q.jnbt.Tag;
 import com.sk89q.worldedit.entity.BaseEntity;
 import com.sk89q.worldedit.extent.clipboard.BlockArrayClipboard;
@@ -116,10 +117,10 @@ public class DiskOptimizedClipboard extends LinearClipboard {
     public DiskOptimizedClipboard(BlockVector3 dimensions, File file) {
         super(dimensions, BlockVector3.ZERO);
         headerSize = HEADER_SIZE;
-        if (headerSize + ((long) getVolume() << 1) >= Integer.MAX_VALUE) {
+        if (headerSize + ((long) getVolume() << 2) >= Integer.MAX_VALUE) {
             throw new IllegalArgumentException(
                     "Dimensions too large for this clipboard format. Use //lazycopy for large selections.");
-        } else if (headerSize + ((long) getVolume() << 1) + (long) ((getHeight() >> 2) + 1) * ((getLength() >> 2) + 1) * ((getWidth() >> 2) + 1) >= Integer.MAX_VALUE) {
+        } else if (headerSize + ((long) getVolume() << 2) + (long) ((getHeight() >> 2) + 1) * ((getLength() >> 2) + 1) * ((getWidth() >> 2) + 1) >= Integer.MAX_VALUE) {
             LOGGER.error("Dimensions are too large for biomes to be stored in a DiskOptimizedClipboard");
             canHaveBiomes = false;
         }
@@ -198,7 +199,7 @@ public class DiskOptimizedClipboard extends LinearClipboard {
                 if (Settings.settings().CLIPBOARD.SAVE_CLIPBOARD_NBT_TO_DISK && (nbtCount + entitiesCount > 0)) {
                     loadNBTFromFileFooter(nbtCount, entitiesCount, biomeLength);
                 }
-            } else if (canHaveBiomes && braf.length() - headerSize == ((long) getVolume() << 1) + biomeLength) {
+            } else if (canHaveBiomes && braf.length() - headerSize == ((long) getVolume() << 2) + biomeLength) {
                 hasBiomes = true;
             }
             getAndSetOffsetAndOrigin();
@@ -244,7 +245,7 @@ public class DiskOptimizedClipboard extends LinearClipboard {
     }
 
     private void loadNBTFromFileFooter(int nbtCount, int entitiesCount, long biomeLength) throws IOException {
-        int biomeBlocksLength = headerSize + (getVolume() << 1) + (hasBiomes ? (int) biomeLength : 0);
+        int biomeBlocksLength = headerSize + (getVolume() << 2) + (hasBiomes ? (int) biomeLength : 0);
         MappedByteBuffer tmp = fileChannel.map(FileChannel.MapMode.READ_ONLY, biomeBlocksLength, braf.length());
         try (NBTInputStream nbtIS = new NBTInputStream(MainUtil.getCompressedIS(new ByteBufferInputStream(tmp)))) {
             Iterator<CompoundTag> iter = nbtIS.toIterator();
@@ -268,6 +269,7 @@ public class DiskOptimizedClipboard extends LinearClipboard {
                 double x = pos.get(0).getValue();
                 double y = pos.get(1).getValue();
                 double z = pos.get(2).getValue();
+                LOGGER.info(x + ", " + y + ", " + z);
                 BaseEntity entity = new BaseEntity(tag);
                 BlockArrayClipboard.ClipboardEntity clipboardEntity = new BlockArrayClipboard.ClipboardEntity(
                         this,
@@ -341,7 +343,7 @@ public class DiskOptimizedClipboard extends LinearClipboard {
                 // Since biomes represent a 4x4x4 cube, we store fewer biome bytes that volume at 1 byte per biome
                 // +1 to each to allow for cubes that lie across the region boundary
                 long length =
-                        headerSize + ((long) getVolume() << 1) + (long) ((getHeight() >> 2) + 1) * ((getLength() >> 2) + 1) * ((getWidth() >> 2) + 1);
+                        headerSize + ((long) getVolume() << 2) + (long) ((getHeight() >> 2) + 1) * ((getLength() >> 2) + 1) * ((getWidth() >> 2) + 1);
                 this.braf.setLength(length);
                 this.nbtBytesRemaining = Integer.MAX_VALUE - (int) length;
                 init();
@@ -373,7 +375,7 @@ public class DiskOptimizedClipboard extends LinearClipboard {
     public void setBiome(int index, BiomeType biome) {
         if (initBiome()) {
             try {
-                byteBuffer.put(headerSize + (getVolume() << 1) + index, (byte) biome.getInternalId());
+                byteBuffer.put(headerSize + (getVolume() << 2) + index, (byte) biome.getInternalId());
             } catch (IndexOutOfBoundsException e) {
                 LOGGER.info((long) (getHeight() >> 2) * (getLength() >> 2) * (getWidth() >> 2));
                 LOGGER.info(index);
@@ -387,7 +389,7 @@ public class DiskOptimizedClipboard extends LinearClipboard {
         if (!hasBiomes()) {
             return null;
         }
-        int biomeId = byteBuffer.get(headerSize + (getVolume() << 1) + index) & 0xFF;
+        int biomeId = byteBuffer.get(headerSize + (getVolume() << 2) + index) & 0xFF;
         return BiomeTypes.get(biomeId);
     }
 
@@ -396,7 +398,7 @@ public class DiskOptimizedClipboard extends LinearClipboard {
         if (!hasBiomes()) {
             return;
         }
-        int mbbIndex = headerSize + (getVolume() << 1);
+        int mbbIndex = headerSize + (getVolume() << 2);
         try {
             for (int y = 0; y < getHeight(); y++) {
                 for (int z = 0; z < getLength(); z++) {
@@ -588,11 +590,18 @@ public class DiskOptimizedClipboard extends LinearClipboard {
                             if (entity.getState() != null && entity.getState().getNbtData() != null) {
                                 CompoundTag data = entity.getState().getNbtData();
                                 HashMap<String, Tag> value = new HashMap<>(data.getValue());
+                                // Add the entity's id
+                                String entityId = entity.getType().getId().toString(); // Assuming getType().getId() returns the entity's ID as a string
+                                value.put("Id", new StringTag(entityId));
+
+                                // Set the entity's position
                                 List<DoubleTag> pos = new ArrayList<>(3);
                                 pos.add(new DoubleTag(entity.getLocation().getX()));
-                                pos.add(new DoubleTag(entity.getLocation().getX()));
-                                pos.add(new DoubleTag(entity.getLocation().getX()));
+                                pos.add(new DoubleTag(entity.getLocation().getY()));
+                                pos.add(new DoubleTag(entity.getLocation().getZ()));
                                 value.put("Pos", new ListTag(DoubleTag.class, pos));
+
+                                // Write the entity's NBT data
                                 nbtOS.writeTag(new CompoundTag(value));
                             }
                         }
@@ -620,13 +629,16 @@ public class DiskOptimizedClipboard extends LinearClipboard {
             if (output == null) {
                 return;
             }
+            int biomeLength = ((getHeight() >> 2) + 1) * ((getLength() >> 2) + 1) * ((getWidth() >> 2) + 1);
+            int biomeBlocksLength = headerSize + (getVolume() << 2) + (readBiomeStatusFromHeader() ? biomeLength : 0);
+            // Seek to the end of the block and biome data section before writing
+            long currentPosition = biomeBlocksLength; // Use biomeBlocksLength as the starting position
+            this.braf.seek(currentPosition); // Move the file pointer to biomeBlocksLength
 
-            long currentLength = this.braf.length();
-            this.braf.setLength(currentLength + baOS.size());
             MappedByteBuffer tempBuffer = fileChannel.map(
                     FileChannel.MapMode.READ_WRITE,
-                    currentLength,
-                    baOS.size()
+                    currentPosition,
+                    output.length
             );
             tempBuffer.put(output);
             tempBuffer.force();
@@ -636,7 +648,6 @@ public class DiskOptimizedClipboard extends LinearClipboard {
             writeEntitiesSavedCountToHeader(0);
         }
     }
-
     @Override
     public Collection<CompoundTag> getTileEntities() {
         return nbtMap.values();

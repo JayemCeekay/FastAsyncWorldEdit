@@ -422,9 +422,6 @@ public interface Player extends Entity, Actor {
     /**
      * Unregister this player, deleting all data stored during the login session.
      */
-    /**
-     * Unregister this player, deleting all data stored during the login session.
-     */
     default void unregister() {
         cancel(true);
         LocalSession session = getSession();

@@ -75,11 +75,17 @@ public class FabricPlayer extends AbstractPlayerActor {
         this.player = player;
         ThreadSafeCache.getInstance().getOnlineIds().add(getUniqueId());
         if (player != null && Settings.settings().CLIPBOARD.USE_DISK) {
-            //FabricPlayer cached = FabricWorldEdit.inst.getCachedPlayer(player);
-            //if (cached == null) {
+            FabricPlayer cached = FabricWorldEdit.inst.getCachedPlayer(player);
+            if (cached == null) {
                 loadClipboardFromDisk();
-           // }
+            }
         }
+    }
+
+    @Override
+    public void unregister() {
+        FabricWorldEdit.inst.FabricPlayerCache.remove(this.getPlayer().getUUID());
+        super.unregister();
     }
 
     public ServerPlayer getPlayer() {
