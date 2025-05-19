@@ -51,8 +51,8 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
     // Pool discarded chunks for reuse (can safely be cleared by another thread)
     // private static final ConcurrentLinkedQueue<IChunk> CHUNK_POOL = new ConcurrentLinkedQueue<>();
     // Chunks currently being queued / worked on
-    private final Long2ObjectLinkedOpenHashMap<IQueueChunk> chunks = new Long2ObjectLinkedOpenHashMap<>();
-    private final ConcurrentLinkedQueue<Future> submissions = new ConcurrentLinkedQueue<>();
+    private final Long2ObjectLinkedOpenHashMap<IQueueChunk<?>> chunks = new Long2ObjectLinkedOpenHashMap<>();
+    private final ConcurrentLinkedQueue<Future<?>> submissions = new ConcurrentLinkedQueue<>();
     private final ReentrantLock getChunkLock = new ReentrantLock();
     private World world = null;
     private int minY = 0;
@@ -142,12 +142,10 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
         if (!this.initialized) {
             return;
         }
-        if (!this.chunks.isEmpty()) {
-            getChunkLock.lock();
-            for (IChunk chunk : this.chunks.values()) {
-                chunk.recycle();
-            }
+        getChunkLock.lock();
+        try {
             this.chunks.clear();
+        } finally {
             getChunkLock.unlock();
         }
         this.enabledQueue = true;
@@ -233,7 +231,6 @@ public class SingleThreadQueueExtent extends ExtentBatchProcessorHolder implemen
                 }
             }
             if (chunk.isEmpty()) {
-                chunk.recycle();
                 Future result = Futures.immediateFuture(null);
                 return (V) result;
             }

@@ -207,9 +207,9 @@ public class FabricStarlightRelighter implements Relighter {
                 //serverLevel.getChunkSource().getLightEngine().lightChunk(chunk, false);
                 final Long id = this.relightCounter++;
 
-                serverLevel.getChunkSource().addRegionTicket(CHUNK_RELIGHT, chunkPos,
+                /*serverLevel.getChunkSource().addRegionTicket(CHUNK_RELIGHT, chunkPos,
                         LIGHT_LEVEL, id
-                );
+                );*/
                 ticketIds.put(chunkPos, id);
             }
             serverLevel.getChunkSource().getLightEngine().taskMailbox.tell(() -> {
@@ -251,7 +251,7 @@ public class FabricStarlightRelighter implements Relighter {
                 FabricPlatformAdapter.sendChunk(serverLevel, x, z, false);
 
             }
-            serverLevel.getChunkSource().removeRegionTicket(FAWE_TICKET, pos, LIGHT_LEVEL, Unit.INSTANCE);
+            //serverLevel.getChunkSource().removeRegionTicket(FAWE_TICKET, pos, LIGHT_LEVEL, Unit.INSTANCE);
         }
     }
 

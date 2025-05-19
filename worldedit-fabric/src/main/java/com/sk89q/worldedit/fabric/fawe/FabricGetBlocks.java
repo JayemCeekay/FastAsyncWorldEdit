@@ -58,6 +58,7 @@ import net.minecraft.world.level.lighting.LevelLightEngine;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.AbstractSet;
 import java.util.Arrays;
 import java.util.Collections;
@@ -69,7 +70,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -393,9 +397,24 @@ public class FabricGetBlocks extends DataArrayGetBlocks {
         entity.discard();
     }
 
+    @Nullable
     public LevelChunk ensureLoaded(ServerLevel nmsWorld, int chunkX, int chunkZ) {
-        return FabricPlatformAdapter.ensureLoaded(nmsWorld, chunkX, chunkZ);
+        CompletableFuture<LevelChunk> future = FabricPlatformAdapter.ensureLoaded(nmsWorld, chunkX, chunkZ);
+
+        if (future.isDone()) {
+            // Chunk was already loaded or finished immediately
+            try {
+                return future.join(); // join() is safe here because future.isDone()
+            } catch (CompletionException e) {
+                throw new RuntimeException("Chunk loading failed", e);
+            }
+        } else {
+            // Chunk is not yet loaded and we cannot block here.
+            // Handle this gracefully instead of deadlocking.
+            throw new IllegalStateException("Chunk is not yet loaded and cannot be loaded synchronously!");
+        }
     }
+
 
     @Override
     @SuppressWarnings("rawtypes")

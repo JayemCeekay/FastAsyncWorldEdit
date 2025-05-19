@@ -12,20 +12,24 @@ import com.fastasyncworldedit.core.queue.IChunkSet;
 import com.fastasyncworldedit.core.queue.IQueueChunk;
 import com.fastasyncworldedit.core.queue.IQueueExtent;
 import com.fastasyncworldedit.core.queue.Pool;
+import com.fastasyncworldedit.core.queue.implementation.ParallelQueueExtent;
 import com.fastasyncworldedit.core.queue.implementation.blocks.DataArray;
 import com.sk89q.jnbt.CompoundTag;
+import com.sk89q.worldedit.internal.util.LogManagerCompat;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockStateHolder;
+import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * An abstract {@link IChunk} class that implements basic get/set blocks.
@@ -33,14 +37,10 @@ import java.util.concurrent.Future;
 @SuppressWarnings("rawtypes")
 public class ChunkHolder<T extends Future<T>> implements IQueueChunk<T> {
 
-    private static final Pool<ChunkHolder> POOL = FaweCache.INSTANCE.registerPool(
-            ChunkHolder.class,
-            ChunkHolder::new,
-            Settings.settings().QUEUE.POOL
-    );
+    private static final Logger LOGGER = LogManagerCompat.getLogger();
 
     public static ChunkHolder newInstance() {
-        return POOL.poll();
+        return new ChunkHolder();
     }
 
     private volatile IChunkGet chunkExisting; // The existing chunk (e.g. a clipboard, or the world, before changes)
@@ -63,16 +63,12 @@ public class ChunkHolder<T extends Future<T>> implements IQueueChunk<T> {
         this.delegate = delegate;
     }
 
+    private static final AtomicBoolean recycleWarning = new AtomicBoolean(false);
     @Override
-    public synchronized void recycle() {
-        delegate = NULL;
-        if (chunkSet != null) {
-            chunkSet.recycle();
-            chunkSet = null;
+    public void recycle() {
+        if (!recycleWarning.getAndSet(true)) {
+            LOGGER.warn("ChunkHolder should not be recycled.", new Exception());
         }
-        chunkExisting = null;
-        extent = null;
-        POOL.offer(this);
     }
 
     public long initAge() {
@@ -1018,7 +1014,6 @@ public class ChunkHolder<T extends Future<T>> implements IQueueChunk<T> {
                 // Do nothing
             });
         }
-        recycle();
         return null;
     }
 
@@ -1031,6 +1026,7 @@ public class ChunkHolder<T extends Future<T>> implements IQueueChunk<T> {
             IChunkGet get = getOrCreateGet();
             try {
                 get.lockCall();
+                trackExtent();
                 boolean postProcess = !(getExtent().getPostProcessor() instanceof EmptyBatchProcessor);
                 final int copyKey = get.setCreateCopy(postProcess);
                 final IChunkSet iChunkSet = getExtent().processSet(this, get, set);
@@ -1046,10 +1042,22 @@ public class ChunkHolder<T extends Future<T>> implements IQueueChunk<T> {
                 return get.call(set, finalizer);
             } finally {
                 get.unlockCall();
+                untrackExtent();
             }
         }
         return null;
     }
+
+    // "call" can be called by QueueHandler#blockingExecutor. In such case, we still want the other thread
+    // to use this SingleThreadQueueExtent. Otherwise, many threads might end up locking on **one** STQE.
+    // This way, locking is spread across multiple STQEs, allowing for better performance
+    private void trackExtent() {
+        ParallelQueueExtent.setCurrentExtent(extent);
+    }
+    private void untrackExtent() {
+        ParallelQueueExtent.clearCurrentExtent();
+    }
+
 
     /**
      * Get the extent this chunk is in.

@@ -269,7 +269,6 @@ public class DiskOptimizedClipboard extends LinearClipboard {
                 double x = pos.get(0).getValue();
                 double y = pos.get(1).getValue();
                 double z = pos.get(2).getValue();
-                LOGGER.info(x + ", " + y + ", " + z);
                 BaseEntity entity = new BaseEntity(tag);
                 BlockArrayClipboard.ClipboardEntity clipboardEntity = new BlockArrayClipboard.ClipboardEntity(
                         this,

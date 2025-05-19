@@ -22,6 +22,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
+import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.BitStorage;
@@ -35,6 +36,8 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.chunk.GlobalPalette;
 import net.minecraft.world.level.chunk.HashMapPalette;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -56,7 +59,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -121,16 +126,42 @@ public class FabricPlatformAdapter extends NMSAdapter {
         }
     }
 
-    public static LevelChunk ensureLoaded(ServerLevel serverLevel, int chunkX, int chunkZ) {
-        LevelChunk nmsChunk = serverLevel.getChunkSource().getChunk(chunkX, chunkZ, false);
-        if (nmsChunk != null) {
-            return nmsChunk;
+    public static @Nullable LevelChunk getChunkImmediatelyAsync(ServerLevel serverLevel, int chunkX, int chunkZ) {
+        LevelChunk chunk = serverLevel.hasChunk(chunkX, chunkZ) ? serverLevel.getChunk(chunkX, chunkZ) : null;
+        if (chunk != null) {
+            return chunk;
         }
+
         if (Fawe.isMainThread()) {
             return serverLevel.getChunk(chunkX, chunkZ);
         }
-        return TaskManager.taskManager().sync(() -> serverLevel.getChunk(chunkX, chunkZ));
+
+        return null;
     }
+
+
+    public static CompletableFuture<LevelChunk> ensureLoaded(ServerLevel serverLevel, int chunkX, int chunkZ) {
+        LevelChunk chunk = getChunkImmediatelyAsync(serverLevel, chunkX, chunkZ);
+        if (chunk != null) {
+            return CompletableFuture.completedFuture(chunk);
+        }
+
+        ServerChunkCache chunkSource = serverLevel.getChunkSource();
+        CompletableFuture<Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure>> future =
+                chunkSource.getChunkFuture(chunkX, chunkZ, ChunkStatus.FULL, true);
+
+        return future
+                .thenApply(either -> {
+                    if (either.left().isPresent()) {
+                        ChunkAccess access = either.left().get();
+                        if (access instanceof LevelChunk) {
+                            return (LevelChunk) access;
+                        }
+                    }
+                    throw new RuntimeException("Failed to load chunk at " + chunkX + ", " + chunkZ);
+                }).orTimeout(30, TimeUnit.SECONDS);
+    }
+
 
     public static ChunkHolder getPlayerChunk(ServerLevel nmsWorld, final int chunkX, final int chunkZ) {
         ChunkMap chunkMap = nmsWorld.getChunkSource().chunkMap;

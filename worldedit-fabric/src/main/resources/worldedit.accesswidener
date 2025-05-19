@@ -30,3 +30,4 @@ accessible field net/minecraft/server/level/ServerLevel entityManager Lnet/minec
 accessible field net/minecraft/world/level/chunk/PalettedContainer$Strategy GLOBAL_PALETTE_FACTORY Lnet/minecraft/world/level/chunk/Palette$Factory;
 accessible method net/minecraft/world/level/chunk/PalettedContainer createOrReuseData (Lnet/minecraft/world/level/chunk/PalettedContainer$Data;I)Lnet/minecraft/world/level/chunk/PalettedContainer$Data;
 accessible method net/minecraft/world/level/chunk/ChunkStatus isLighted (Lnet/minecraft/world/level/chunk/ChunkAccess;)Z
+accessible method net/minecraft/server/level/DistanceManager getTickets (J)Lnet/minecraft/util/SortedArraySet;

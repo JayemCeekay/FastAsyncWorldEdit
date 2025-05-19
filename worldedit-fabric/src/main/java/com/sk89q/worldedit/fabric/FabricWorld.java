@@ -467,7 +467,7 @@ public class FabricWorld extends AbstractWorld {
         // Pre-gen all the chunks
         for (BlockVector2 chunk : region.getChunks()) {
             chunkLoadings.add(
-                chunkManager.callGetChunkFuture(chunk.getX(), chunk.getZ(), ChunkStatus.FEATURES, true)
+                world.getChunkSource().getChunkFuture(chunk.getX(), chunk.getZ(), ChunkStatus.FEATURES, true)
                     .thenApply(either -> either.left().orElse(null))
             );
         }

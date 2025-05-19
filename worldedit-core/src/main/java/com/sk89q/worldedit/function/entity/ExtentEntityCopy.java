@@ -258,7 +258,8 @@ public class ExtentEntityCopy implements EntityFunction {
                 if (hasRotation) {
                     ListTag orgrot = state.getNbtData().getListTag("Rotation");
                     // source extent may be null: use non-nullable destination instead since this is just a conversion into a vector.
-                    Vector3 orgDirection = new Location(destination, 0, 0, 0, orgrot.getFloat(0), orgrot.getFloat(1)).getDirection();
+                    Vector3 orgDirection =
+                            new Location(source == null ? destination : source, 0, 0, 0, orgrot.getFloat(0), orgrot.getFloat(1)).getDirection();
                     Vector3 newDirection = transform.apply(orgDirection).subtract(transform.apply(Vector3.ZERO)).normalize();
                     builder.put(
                             "Rotation",
@@ -278,7 +279,8 @@ public class ExtentEntityCopy implements EntityFunction {
 
                 ListTag orgrot = state.getNbtData().getListTag("Rotation");
                 // source extent may be null: use non-nullable destination instead since this is just a conversion into a vector.
-                Vector3 orgDirection = new Location(destination, 0, 0, 0, orgrot.getFloat(0), orgrot.getFloat(1)).getDirection();
+                Vector3 orgDirection =
+                        new Location(source == null ? destination : source, 0, 0, 0, orgrot.getFloat(0), orgrot.getFloat(1)).getDirection();
                 Vector3 newDirection = transform.apply(orgDirection).subtract(transform.apply(Vector3.ZERO)).normalize();
                 builder.put(
                         "Rotation",
