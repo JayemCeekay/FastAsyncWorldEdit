@@ -3,6 +3,7 @@ package com.fastasyncworldedit.core.internal.simd;
 import com.fastasyncworldedit.core.queue.IChunk;
 import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.IChunkSet;
+import com.fastasyncworldedit.core.queue.implementation.blocks.DataArray;
 import com.sk89q.worldedit.world.block.BlockTypesCache;
 import jdk.incubator.vector.ShortVector;
 import jdk.incubator.vector.VectorMask;
@@ -16,7 +17,7 @@ public interface VectorizedMask {
         for (int layer = get.getMinSectionPosition(); layer <= get.getMaxSectionPosition(); layer++) {
             setFassade.setLayer(layer);
             getFassade.setLayer(layer);
-            final char[] sectionSet = set.loadIfPresent(layer);
+            final DataArray sectionSet = set.loadIfPresent(layer);
             if (sectionSet == null) {
                 continue;
             }

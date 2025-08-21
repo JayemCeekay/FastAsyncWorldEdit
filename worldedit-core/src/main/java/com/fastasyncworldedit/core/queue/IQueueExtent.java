@@ -5,6 +5,7 @@ import com.fastasyncworldedit.core.extent.processor.IBatchProcessorHolder;
 import com.fastasyncworldedit.core.internal.simd.SimdSupport;
 import com.fastasyncworldedit.core.internal.simd.VectorizedCharFilterBlock;
 import com.fastasyncworldedit.core.internal.simd.VectorizedFilter;
+import com.fastasyncworldedit.core.queue.implementation.blocks.DataArray;
 import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.function.operation.Operation;
 import com.sk89q.worldedit.math.BlockVector2;

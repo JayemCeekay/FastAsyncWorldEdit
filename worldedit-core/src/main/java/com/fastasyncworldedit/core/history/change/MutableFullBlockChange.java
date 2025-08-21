@@ -7,12 +7,11 @@ import com.sk89q.worldedit.history.UndoContext;
 import com.sk89q.worldedit.history.change.Change;
 import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockTypesCache;
+import org.jetbrains.annotations.ApiStatus;
 
-public class MutableFullBlockChange implements Change {
+@ApiStatus.Internal
+public final class MutableFullBlockChange extends BlockPositionChange {
 
-    public int z;
-    public int y;
-    public int x;
     public int from;
     public int to;
     public BlockBag blockBag;

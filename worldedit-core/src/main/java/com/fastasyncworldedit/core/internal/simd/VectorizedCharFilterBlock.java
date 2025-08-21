@@ -1,13 +1,13 @@
 package com.fastasyncworldedit.core.internal.simd;
 
-import com.fastasyncworldedit.core.extent.filter.block.CharFilterBlock;
+import com.fastasyncworldedit.core.extent.filter.block.DataArrayFilterBlock;
 import com.fastasyncworldedit.core.queue.Filter;
 import com.sk89q.worldedit.extent.Extent;
 import jdk.incubator.vector.ShortVector;
 import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorSpecies;
 
-public class VectorizedCharFilterBlock extends CharFilterBlock {
+public class VectorizedCharFilterBlock extends DataArrayFilterBlock {
 
     public VectorizedCharFilterBlock(final Extent extent) {
         super(extent);
