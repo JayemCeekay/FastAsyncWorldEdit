@@ -19,10 +19,18 @@
 
 package com.sk89q.worldedit.fabric;
 
+import com.google.common.base.Suppliers;
+import com.sk89q.jnbt.CompoundTag;
+import com.sk89q.worldedit.fabric.fawe.FabricLazyCompoundTag;
 import com.sk89q.worldedit.world.registry.BlockMaterial;
 import com.sk89q.worldedit.world.registry.PassthroughBlockMaterial;
-import net.minecraft.block.Material;
-import net.minecraft.block.piston.PistonBehavior;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.EmptyBlockGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.PushReaction;
 
 import javax.annotation.Nullable;
 
@@ -32,62 +40,130 @@ import javax.annotation.Nullable;
  * bundled block info.
  */
 public class FabricBlockMaterial extends PassthroughBlockMaterial {
+    private final Block block;
+    private final BlockState blockState;
+    private final int opacity;
+    private final CompoundTag tile;
 
-    private final Material delegate;
-
-    public FabricBlockMaterial(Material delegate, @Nullable BlockMaterial secondary) {
+    public FabricBlockMaterial(Block block, BlockState blockState, @Nullable BlockMaterial secondary) {
         super(secondary);
-        this.delegate = delegate;
+        this.block = block;
+        this.blockState = blockState;
+        opacity = blockState.getLightBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
+        BlockEntity tileEntity = !(blockState instanceof EntityBlock) ? null : ((EntityBlock) blockState).newBlockEntity(
+                BlockPos.ZERO,
+                blockState
+        );
+        tile = tileEntity == null
+                ? null
+                : new FabricLazyCompoundTag(Suppliers.memoize(() -> tileEntity.saveWithId(FabricWorldEdit.registryAccess())));
     }
 
     @Override
     public boolean isAir() {
-        return delegate == Material.AIR || super.isAir();
+        return blockState.isAir() || super.isAir();
     }
 
     @Override
     public boolean isOpaque() {
-        return delegate.blocksLight();
+        return blockState.canOcclude();
     }
 
     @Override
     public boolean isLiquid() {
-        return delegate.isLiquid();
+        return blockState.liquid();
     }
 
     @Override
     public boolean isSolid() {
-        return delegate.isSolid();
+        return blockState.isSolid();
+    }
+
+    @Override
+    public float getHardness() {
+        return block.defaultDestroyTime();
+    }
+
+    @Override
+    public float getResistance() {
+        return block.getExplosionResistance();
+    }
+
+    @Override
+    public float getSlipperiness() {
+        return block.getFriction();
+    }
+
+    @Override
+    public int getLightValue() {
+        return blockState.getLightEmission();
+    }
+
+    @Override
+    public int getLightOpacity() {
+        return opacity;
     }
 
     @Override
     public boolean isFragileWhenPushed() {
-        return delegate.getPistonBehavior() == PistonBehavior.DESTROY;
+        return blockState.getPistonPushReaction() == PushReaction.DESTROY;
     }
 
     @Override
     public boolean isUnpushable() {
-        return delegate.getPistonBehavior() == PistonBehavior.BLOCK;
+        return blockState.getPistonPushReaction() == PushReaction.BLOCK;
+    }
+
+    @Override
+    public boolean isTicksRandomly() {
+        return block.isRandomlyTicking(blockState);
     }
 
     @Override
     public boolean isMovementBlocker() {
-        return delegate.blocksMovement();
+        return blockState.blocksMotion();
     }
 
     @Override
     public boolean isBurnable() {
-        return delegate.isBurnable();
+        return blockState.ignitedByLava();
     }
 
     @Override
     public boolean isToolRequired() {
-        return !delegate.canBreakByHand();
+        return false;
     }
 
     @Override
     public boolean isReplacedDuringPlacement() {
-        return delegate.isReplaceable();
+        return blockState.canBeReplaced();
+    }
+
+    @Override
+    public boolean isTranslucent() {
+        return blockState.canOcclude();
+    }
+
+
+    @Override
+    public boolean hasContainer() {
+        return block instanceof EntityBlock;
+    }
+
+    @Override
+    public boolean isTile() {
+        return blockState instanceof EntityBlock;
+    }
+
+    @Override
+    public CompoundTag getDefaultTile() {
+        return tile;
+    }
+
+    @Override
+    public int getMapColor() {
+        // rgb field
+        return block.defaultMapColor().col;
     }
 
 }

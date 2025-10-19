@@ -26,7 +26,8 @@ fun Project.applyPlatformAndCoreConfiguration() {
     apply(plugin = "signing")
 
     applyCommonJavaConfiguration(
-            sourcesJar = name in setOf("worldedit-core", "worldedit-bukkit"),
+            banSlf4j = name !in setOf("worldedit-forge", "worldedit-fabric"),
+            sourcesJar = name in setOf("worldedit-core", "worldedit-bukkit")
     )
 
     if (project.hasProperty("buildnumber")) {

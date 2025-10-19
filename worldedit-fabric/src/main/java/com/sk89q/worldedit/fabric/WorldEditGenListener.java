@@ -19,22 +19,29 @@
 
 package com.sk89q.worldedit.fabric;
 
-import net.minecraft.server.WorldGenerationProgressListener;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.chunk.ChunkStatus;
-
-import javax.annotation.Nullable;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.server.level.progress.ChunkProgressListener;
+import net.minecraft.world.level.ChunkPos;
 
 // For now, this does nothing, but might be useful later for regen progress communication.
-class WorldEditGenListener implements WorldGenerationProgressListener {
+class WorldEditGenListener implements ChunkProgressListener {
 
+    @Environment(EnvType.CLIENT)
     @Override
-    public void start(ChunkPos spawnPos) {
+    public void start() {
     }
 
     @Override
-    public void setChunkStatus(ChunkPos pos, @Nullable ChunkStatus status) {
+    public void updateSpawnPos(ChunkPos spawnPos) {
     }
+
+    @Override
+    public void onStatusChange(
+            final ChunkPos chunkPos,
+            @org.jetbrains.annotations.Nullable final net.minecraft.world.level.chunk.status.ChunkStatus chunkStatus) {
+    }
+
 
     @Override
     public void stop() {

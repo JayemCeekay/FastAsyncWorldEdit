@@ -273,7 +273,7 @@ public abstract class PlacementStateProcessor extends AbstractDelegateExtent imp
                 } else {
                     placedBlock.setComponents(Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE);
                 }
-                char newOrdinal = getBlockOrdinal(blockX, blockY, blockZ, state);
+                int newOrdinal = getBlockOrdinal(blockX, blockY, blockZ, state);
                 if (newOrdinal == ordinal) {
                     continue;
                 }
@@ -304,7 +304,7 @@ public abstract class PlacementStateProcessor extends AbstractDelegateExtent imp
             } else {
                 state = extent.getBlock(secondPass.x, secondPass.y, secondPass.z);
             }
-            char newOrdinal = getBlockOrdinal(secondPass.x, secondPass.y, secondPass.z, state);
+            int newOrdinal = getBlockOrdinal(secondPass.x, secondPass.y, secondPass.z, state);
             if (newOrdinal == state.getOrdinalChar() && ordinal == 0) {
                 continue;
             }
@@ -319,7 +319,7 @@ public abstract class PlacementStateProcessor extends AbstractDelegateExtent imp
     @Override
     public abstract PlacementStateProcessor fork();
 
-    protected abstract char getStateAtFor(
+    protected abstract int getStateAtFor(
             int x,
             int y,
             int z,
@@ -400,8 +400,8 @@ public abstract class PlacementStateProcessor extends AbstractDelegateExtent imp
         return BlockTypesCache.states[ordinal].getNbt();
     }
 
-    private char getBlockOrdinal(int blockX, int blockY, int blockZ, BlockState state) {
-        char override = getOverrideBlockOrdinal(blockX, blockY, blockZ, state);
+    private int getBlockOrdinal(int blockX, int blockY, int blockZ, BlockState state) {
+        int override = getOverrideBlockOrdinal(blockX, blockY, blockZ, state);
         if (override != BlockTypesCache.ReservedIDs.__RESERVED__) {
             return override;
         }
@@ -449,13 +449,13 @@ public abstract class PlacementStateProcessor extends AbstractDelegateExtent imp
         return getStateAtFor(blockX, blockY, blockZ, state, clickPos, clickedFaceDirection, clickedBlock);
     }
 
-    protected char getOverrideBlockOrdinal(int blockX, int blockY, int blockZ, BlockState state) {
+    protected int getOverrideBlockOrdinal(int blockX, int blockY, int blockZ, BlockState state) {
         if (BlockCategories.TALL_FLOWERS.contains(state)) {
             PropertyKey propertyKey = PropertyKey.HALF;
             BlockState plantState = extent.getBlock(blockX, blockY - 1, blockZ).getBlockType().equals(state.getBlockType())
                     ? state.with(propertyKey, "upper")
                     : state.with(propertyKey, "lower");
-            return plantState.getOrdinalChar();
+            return plantState.getOrdinal();
         }
         return BlockTypesCache.ReservedIDs.__RESERVED__;
     }
@@ -472,8 +472,8 @@ public abstract class PlacementStateProcessor extends AbstractDelegateExtent imp
         if (REQUIRES_SECOND_PASS.test(block.getBlock()) && ADJACENT_STAIR_MASK.test(extent, block)) {
             postCompleteSecondPasses.put(new SecondPass(block), 0);
         }
-        char ordinal = (char) block.getOrdinal();
-        char newOrdinal = getBlockOrdinal(block.x(), block.y(), block.z(), block.getBlock());
+        int ordinal = block.getOrdinal();
+        int newOrdinal = getBlockOrdinal(block.x(), block.y(), block.z(), block.getBlock());
         if (ordinal != newOrdinal) {
             block.setBlock(BlockTypesCache.states[newOrdinal]);
         }
@@ -492,7 +492,7 @@ public abstract class PlacementStateProcessor extends AbstractDelegateExtent imp
             postCompleteSecondPasses.put(new SecondPass(set), 0);
             return false;
         }
-        char newOrdinal = getBlockOrdinal(set.x(), set.y(), set.z(), block.toBlockState());
+        int newOrdinal = getBlockOrdinal(set.x(), set.y(), set.z(), block.toBlockState());
         if (block.getOrdinalChar() != newOrdinal) {
             BlockState newState = BlockTypesCache.states[newOrdinal];
             orDefault.setBlock(set.x(), set.y(), set.z(), newState);
@@ -515,8 +515,8 @@ public abstract class PlacementStateProcessor extends AbstractDelegateExtent imp
             postCompleteSecondPasses.put(new SecondPass(position), 0);
             return block;
         }
-        char newOrdinal = getBlockOrdinal(position.x(), position.y(), position.z(), block.toBlockState());
-        if (block.getOrdinalChar() != newOrdinal) {
+        int newOrdinal = getBlockOrdinal(position.x(), position.y(), position.z(), block.toBlockState());
+        if (block.getOrdinal() != newOrdinal) {
             BlockState state = BlockTypesCache.states[newOrdinal];
             LinCompoundTag nbt = block.getNbt();
             if (nbt != null && state.getBlockType() == block.getBlockType()) {

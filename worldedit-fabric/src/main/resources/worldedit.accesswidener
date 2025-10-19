@@ -1,0 +1,36 @@
+accessWidener v1 named
+accessible class net/minecraft/server/level/ServerChunkCache$MainThreadExecutor
+accessible field net/minecraft/world/level/chunk/LevelChunk loaded Z
+accessible field net/minecraft/world/level/chunk/PalettedContainer registry Lnet/minecraft/core/IdMap;
+accessible field net/minecraft/world/level/chunk/ChunkAccess blockEntities Ljava/util/Map;
+accessible field net/minecraft/world/level/chunk/ChunkAccess heightmaps Ljava/util/Map;
+accessible field net/minecraft/network/protocol/game/ClientboundLevelChunkWithLightPacket x I
+accessible field net/minecraft/network/protocol/game/ClientboundLevelChunkWithLightPacket z I
+accessible field net/minecraft/world/level/chunk/PalettedContainer data Lnet/minecraft/world/level/chunk/PalettedContainer$Data;
+accessible method net/minecraft/world/level/chunk/LevelChunk removeGameEventListener (Lnet/minecraft/world/level/block/entity/BlockEntity;Lnet/minecraft/server/level/ServerLevel;)V
+accessible method net/minecraft/world/level/chunk/LevelChunk removeBlockEntityTicker (Lnet/minecraft/core/BlockPos;)V
+accessible class net/minecraft/world/level/chunk/PalettedContainer$Data
+accessible field net/minecraft/world/level/chunk/PalettedContainer$Data storage Lnet/minecraft/util/BitStorage;
+accessible field net/minecraft/world/level/chunk/PalettedContainer$Data palette Lnet/minecraft/world/level/chunk/Palette;
+accessible field net/minecraft/world/level/chunk/LevelChunkSection tickingBlockCount S
+accessible field net/minecraft/world/level/chunk/LevelChunkSection tickingFluidCount S
+accessible field net/minecraft/world/level/chunk/LevelChunkSection nonEmptyBlockCount S
+accessible method net/minecraft/server/level/ChunkMap getVisibleChunkIfPresent (J)Lnet/minecraft/server/level/ChunkHolder;
+accessible field net/minecraft/world/level/chunk/PalettedContainer threadingDetector Lnet/minecraft/util/ThreadingDetector;
+accessible method net/minecraft/world/level/chunk/PalettedContainer$Data <init> (Lnet/minecraft/world/level/chunk/PalettedContainer$Configuration;Lnet/minecraft/util/BitStorage;Lnet/minecraft/world/level/chunk/Palette;)V
+accessible class net/minecraft/world/level/chunk/PalettedContainer$Configuration
+accessible field net/minecraft/util/ThreadingDetector lock Ljava/util/concurrent/Semaphore;
+mutable field net/minecraft/util/ThreadingDetector lock Ljava/util/concurrent/Semaphore;
+accessible field net/minecraft/world/level/block/entity/BlockEntity remove Z
+accessible field net/minecraft/server/level/ThreadedLevelLightEngine taskMailbox Lnet/minecraft/util/thread/ProcessorMailbox;
+accessible field net/minecraft/server/level/ServerChunkCache mainThreadProcessor Lnet/minecraft/server/level/ServerChunkCache$MainThreadExecutor;
+accessible method net/minecraft/server/level/ChunkMap getUpdatingChunkIfPresent (J)Lnet/minecraft/server/level/ChunkHolder;
+accessible method net/minecraft/server/level/ChunkHolder broadcast (Ljava/util/List;Lnet/minecraft/network/protocol/Packet;)V
+accessible field net/minecraft/server/level/ServerLevel entityManager Lnet/minecraft/world/level/entity/PersistentEntitySectionManager;
+accessible field net/minecraft/world/level/chunk/PalettedContainer$Strategy GLOBAL_PALETTE_FACTORY Lnet/minecraft/world/level/chunk/Palette$Factory;
+accessible method net/minecraft/world/level/chunk/PalettedContainer createOrReuseData (Lnet/minecraft/world/level/chunk/PalettedContainer$Data;I)Lnet/minecraft/world/level/chunk/PalettedContainer$Data;
+accessible method net/minecraft/server/level/DistanceManager getTickets (J)Lnet/minecraft/util/SortedArraySet;
+accessible method net/minecraft/world/level/chunk/status/ChunkStatusTasks isLighted (Lnet/minecraft/world/level/chunk/ChunkAccess;)Z
+accessible class net/minecraft/world/level/block/entity/BlockEntity$ComponentHelper
+accessible method net/minecraft/network/protocol/game/ClientboundBlockEntityDataPacket <init> (Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/entity/BlockEntityType;Lnet/minecraft/nbt/CompoundTag;)V
+accessible method net/minecraft/world/level/block/state/BlockBehaviour isRandomlyTicking (Lnet/minecraft/world/level/block/state/BlockState;)Z

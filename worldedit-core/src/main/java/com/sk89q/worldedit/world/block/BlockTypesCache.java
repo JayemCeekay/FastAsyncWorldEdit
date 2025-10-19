@@ -9,6 +9,9 @@ import com.sk89q.worldedit.extension.platform.Capability;
 import com.sk89q.worldedit.extension.platform.Platform;
 import com.sk89q.worldedit.registry.state.AbstractProperty;
 import com.sk89q.worldedit.registry.state.Property;
+import com.sk89q.worldedit.registry.state.BooleanProperty;
+import com.sk89q.worldedit.registry.state.IntegerProperty;
+import com.sk89q.worldedit.registry.state.EnumProperty;
 import com.sk89q.worldedit.world.registry.BlockMaterial;
 import com.sk89q.worldedit.world.registry.BlockRegistry;
 import com.sk89q.worldedit.world.registry.Registries;
@@ -55,7 +58,7 @@ public class BlockTypesCache {
                 propertyString = id.substring(propI + 1, id.length() - 1);
             }
 
-            int maxInternalStateId = 0;
+            int maxPropId = 0;
             Map<String, ? extends Property<?>> properties = WorldEdit.getInstance().getPlatformManager().queryCapability(
                     Capability.GAME_HOOKS).getRegistries().getBlockRegistry().getProperties(type);
             if (!properties.isEmpty()) {
@@ -73,12 +76,16 @@ public class BlockTypesCache {
                 int bitOffset = 0;
                 for (Map.Entry<String, ? extends Property<?>> entry : properties.entrySet()) {
                     PropertyKey key = PropertyKey.getOrCreate(entry.getKey());
-                    AbstractProperty<?> property = ((AbstractProperty) entry.getValue()).withOffset(bitOffset);
+                    AbstractProperty<?> property = adaptProperty(entry.getKey(), entry.getValue(), bitOffset);
                     this.propertiesMapArr[key.getId()] = property;
                     this.propertiesArr[prop_arr_i++] = property;
                     propMap.put(entry.getKey(), property);
 
-                    maxInternalStateId += (property.getValues().size() << bitOffset);
+                    // Track the true maximum property index (relative to the property bit section)
+                    int span = property.getValues().size();
+                    if (span > 0 && property.getNumBits() > 0) {
+                        maxPropId |= ((span - 1) << bitOffset);
+                    }
                     bitOffset += property.getNumBits();
                 }
                 this.propertiesList = Arrays.asList(this.propertiesArr);
@@ -91,7 +98,7 @@ public class BlockTypesCache {
                 this.propertiesMap = Collections.emptyMap();
                 this.propertiesSet = Collections.emptySet();
             }
-            this.permutations = maxInternalStateId;
+            this.permutations = maxPropId;
 
             this.blockMaterial = WorldEdit
                     .getInstance()
@@ -102,7 +109,7 @@ public class BlockTypesCache {
                     .getMaterial(type);
 
             if (!propertiesList.isEmpty()) {
-                this.stateOrdinals = generateStateOrdinals(internalId, states.size(), maxInternalStateId, propertiesList);
+                this.stateOrdinals = generateStateOrdinals(internalId, states.size(), this.permutations, propertiesList);
 
                 for (int propId = 0; propId < this.stateOrdinals.length; propId++) {
                     int ordinal = this.stateOrdinals[propId];
@@ -135,8 +142,42 @@ public class BlockTypesCache {
             }
         }
 
+        private AbstractProperty<?> adaptProperty(String name, Property<?> prop, int bitOffset) {
+            // If the platform already provided a concrete AbstractProperty (e.g., DirectionalProperty),
+            // preserve its type and just apply the bit offset.
+            if (prop instanceof AbstractProperty<?>) {
+                return ((AbstractProperty<?>) prop).withOffset(bitOffset);
+            }
+
+            List<?> vals = prop.getValues();
+            if (vals == null || vals.isEmpty()) {
+                // Fallback to an empty enum property
+                return new EnumProperty(name, Collections.emptyList()).withOffset(bitOffset);
+            }
+            Object first = vals.get(0);
+            if (first instanceof Boolean) {
+                @SuppressWarnings("unchecked")
+                List<Boolean> list = (List<Boolean>) vals;
+                return new BooleanProperty(name, list).withOffset(bitOffset);
+            }
+            if (first instanceof Integer) {
+                @SuppressWarnings("unchecked")
+                List<Integer> list = (List<Integer>) vals;
+                return new IntegerProperty(name, list).withOffset(bitOffset);
+            }
+            // Default: treat as enum-like by using string representations
+            List<String> strings = new ArrayList<>(vals.size());
+            for (Object v : vals) {
+                strings.add(v.toString());
+            }
+            return new EnumProperty(name, strings).withOffset(bitOffset);
+        }
+
         private int parseProperties(String properties, Map<String, AbstractProperty<?>> propertyMap) {
             int id = internalId;
+            if (properties == null || properties.isEmpty()) {
+                return id;
+            }
             for (String keyPair : properties.split(",")) {
                 String[] split = keyPair.split("=");
                 String name = split[0];
@@ -154,7 +195,18 @@ public class BlockTypesCache {
         if (props.isEmpty()) {
             return null;
         }
-        int[] result = new int[maxStateId];
+        // Compute the true maximum property index to avoid overflow/undersizing.
+        int maxPropId = 0;
+        for (int i = 0; i < props.size(); i++) {
+            AbstractProperty<?> p = props.get(i);
+            int relOffset = p.getBitOffset() - BIT_OFFSET; // relative to property section
+            int span = p.getValues().size();
+            if (span > 0) {
+                // OR-ing the max contribution of this property yields the global max index when combined.
+                maxPropId |= ((span - 1) << relOffset);
+            }
+        }
+        int[] result = new int[maxPropId + 1];
         Arrays.fill(result, -1);
         int[] state = new int[props.size()];
         int[] sizes = new int[props.size()];
@@ -169,8 +221,12 @@ public class BlockTypesCache {
             for (int i = 0; i < state.length; i++) {
                 stateId = props.get(i).modifyIndex(stateId, state[i]);
             }
-            // Map it to the ordinal
-            result[stateId >> BIT_OFFSET] = ordinal++;
+            // Map it to the ordinal using the property index portion
+            int propId = stateId >> BIT_OFFSET;
+            // Guard against any unexpected overflow scenarios
+            if (propId >= 0 && propId < result.length) {
+                result[propId] = ordinal++;
+            }
             // Increment the state
             while (++state[index] == sizes[index]) {
                 state[index] = 0;
@@ -215,15 +271,25 @@ public class BlockTypesCache {
             Registries registries = platform.getRegistries();
             BlockRegistry blockReg = registries.getBlockRegistry();
             Collection<String> blocks = blockReg.values();
-            Map<String, String> blockMap = blocks.stream().collect(Collectors.toMap(item -> item.charAt(item.length() - 1) == ']'
-                    ? item.substring(0, item.indexOf('['))
-                    : item, item -> item));
+            LinkedHashMap<String, String> blockMap = blocks.stream().collect(
+                    Collectors.toMap(
+                            item -> item.charAt(item.length() - 1) == ']'
+                                    ? item.substring(0, item.indexOf('['))
+                                    : item,
+                            item -> item,
+                            (o, o2) -> o,
+                            LinkedHashMap::new
+                    )
+            );
 
             int size = blockMap.size() + 1;
-            BIT_OFFSET = MathMan.log2nlz(size);
+            // Use bitLength(size - 1) to avoid over-allocating a bit when size is a power of two
+            BIT_OFFSET = MathMan.log2nlz(size - 1);
             BIT_MASK = ((1 << BIT_OFFSET) - 1);
+            System.out.println(BIT_OFFSET + " is the bit offset");
             values = new BlockType[size];
-
+            System.out.println(blocks.size() + " is the number of blockstates in the block registry");
+            System.out.println(values.length + " is the number of block types in the block registry");
             // Register reserved IDs. Ensure air/reserved are 0/1/2/3
             {
                 for (Field field : ReservedIDs.class.getDeclaredFields()) {

@@ -19,14 +19,19 @@
 
 package com.sk89q.worldedit.fabric.mixin;
 
-import net.minecraft.network.packet.c2s.play.ClientSettingsC2SPacket;
+import net.minecraft.world.level.levelgen.WorldGenSettings;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.storage.PrimaryLevelData;
+import net.minecraft.world.level.storage.WorldData;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-@Mixin(ClientSettingsC2SPacket.class)
-public interface AccessorClientSettingsC2SPacket {
+@Mixin(PrimaryLevelData.class)
+public interface AccessorPrimaryLevelData extends WorldData {
 
     @Accessor
-    String getLanguage();
+    @Mutable
+    void setWorldOptions(WorldOptions options);
 
 }

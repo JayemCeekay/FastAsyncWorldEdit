@@ -24,17 +24,17 @@ public sealed interface DataArray permits CharDataArray, IntDataArray {
      * @return an empty {@link DataArray}.
      */
     static DataArray createEmpty() {
-        if (CharDataArray.CAN_USE_CHAR_ARRAY) {
+        /*if (CharDataArray.CAN_USE_CHAR_ARRAY) {
             return new CharDataArray();
-        }
+        }*/
         return new IntDataArray();
     }
 
     @SuppressWarnings("unchecked")
     static <T> VectorSpecies<T> preferredSpecies() {
-        if (CharDataArray.CAN_USE_CHAR_ARRAY) {
+       /* if (CharDataArray.CAN_USE_CHAR_ARRAY) {
             return (VectorSpecies<T>) ShortVector.SPECIES_PREFERRED;
-        }
+        }*/
         return (VectorSpecies<T>) IntVector.SPECIES_PREFERRED;
     }
 

@@ -9,7 +9,7 @@ import com.sk89q.worldedit.world.block.BlockState;
 
 public class SingleBlockStateMask extends ABlockMask {
 
-    private final char ordinal;
+    private final int ordinal;
     private final boolean isAir;
 
     public BlockState getBlockState() {
@@ -19,10 +19,10 @@ public class SingleBlockStateMask extends ABlockMask {
     public SingleBlockStateMask(Extent extent, BlockState state) {
         super(extent);
         isAir = state.isAir();
-        this.ordinal = state.getOrdinalChar();
+        this.ordinal = state.getOrdinal();
     }
 
-    private SingleBlockStateMask(Extent extent, char ordinal, boolean isAir) {
+    private SingleBlockStateMask(Extent extent, int ordinal, boolean isAir) {
         super(extent);
         this.ordinal = ordinal;
         this.isAir = isAir;
@@ -36,7 +36,7 @@ public class SingleBlockStateMask extends ABlockMask {
 
     @Override
     public final boolean test(BlockState state) {
-        return state.getOrdinalChar() == ordinal;
+        return state.getOrdinal() == ordinal;
     }
 
     @Override

@@ -41,6 +41,8 @@ public class EnumProperty extends AbstractProperty<String> {
             String value = values.get(i).intern();
             values.set(i, value);
             offsets.put(value, i);
+            // also allow case-insensitive lookup to match platform-provided lowercase strings (e.g., "north")
+            offsets.put(value.toLowerCase(java.util.Locale.ROOT), i);
         }
     }
 

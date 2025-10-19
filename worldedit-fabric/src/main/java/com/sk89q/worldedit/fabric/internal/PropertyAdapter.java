@@ -17,9 +17,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package com.sk89q.worldedit.fabric;
-
-import static com.google.common.base.Preconditions.checkArgument;
+package com.sk89q.worldedit.fabric.internal;
 
 import com.google.common.collect.ImmutableList;
 import com.sk89q.worldedit.registry.state.Property;
@@ -27,14 +25,16 @@ import com.sk89q.worldedit.registry.state.Property;
 import java.util.List;
 import java.util.Optional;
 
-class PropertyAdapter<T extends Comparable<T>> implements Property<T> {
+import static com.google.common.base.Preconditions.checkArgument;
 
-    private final net.minecraft.state.property.Property<T> property;
+public class PropertyAdapter<T extends Comparable<T>> implements Property<T> {
+
+    private final net.minecraft.world.level.block.state.properties.Property<T> property;
     private final List<T> values;
 
-    public PropertyAdapter(net.minecraft.state.property.Property<T> property) {
+    public PropertyAdapter(net.minecraft.world.level.block.state.properties.Property<T> property) {
         this.property = property;
-        this.values = ImmutableList.copyOf(property.getValues());
+        this.values = ImmutableList.copyOf(property.getPossibleValues());
     }
 
     @Override

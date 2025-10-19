@@ -48,7 +48,7 @@ public class SimdSupport {
     }
 
     public static boolean useVectorApi() {
-        return VECTOR_API_PRESENT && Settings.settings().EXPERIMENTAL.USE_VECTOR_API;
+        return false;//VECTOR_API_PRESENT && Settings.settings().EXPERIMENTAL.USE_VECTOR_API;
     }
 
     public static @Nullable VectorizedMask vectorizedTargetMask(Mask mask) {

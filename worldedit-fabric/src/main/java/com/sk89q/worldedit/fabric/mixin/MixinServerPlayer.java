@@ -19,21 +19,32 @@
 
 package com.sk89q.worldedit.fabric.mixin;
 
-import com.sk89q.worldedit.fabric.MutableBiomeArray;
-import com.sk89q.worldedit.internal.util.BiomeMath;
-import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.source.BiomeArray;
+import com.sk89q.worldedit.fabric.internal.ExtendedPlayerEntity;
+import net.minecraft.server.level.ClientInformation;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(BiomeArray.class)
-public abstract class MixinBiomeArray implements MutableBiomeArray {
+@Mixin(ServerPlayer.class)
+public abstract class MixinServerPlayer implements ExtendedPlayerEntity {
 
     @Shadow
-    private Biome[] data;
+    public ServerGamePacketListenerImpl connection;
+    private String language = "en_us";
+
+    @Inject(method = "updateOptions", at = @At(value = "HEAD"))
+    public void updateOptions(
+            ClientInformation clientInformation, CallbackInfo ci
+    ) {
+        this.language = clientInformation.language();
+    }
 
     @Override
-    public void setBiome(int x, int y, int z, Biome biome) {
-        this.data[BiomeMath.computeBiomeIndex(x, y, z)] = biome;
+    public String getLanguage() {
+        return language;
     }
 }

@@ -36,6 +36,7 @@ import com.sk89q.worldedit.util.SideEffect;
 import com.sk89q.worldedit.util.SideEffectSet;
 import com.sk89q.worldedit.util.formatting.text.Component;
 import com.sk89q.worldedit.world.World;
+import com.sk89q.worldedit.world.block.BlockTypesCache;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nullable;
@@ -375,7 +376,7 @@ public class FaweAPI {
 
             for (int x = minX; x <= maxX; x++) {
                 for (int z = minZ; z <= maxZ; z++) {
-                    relighter.addChunk(x, z, null, 65535);
+                    relighter.addChunk(x, z, null, BlockTypesCache.states.length);
                     count++;
                 }
             }

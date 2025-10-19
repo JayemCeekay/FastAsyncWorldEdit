@@ -876,7 +876,7 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
                         index = indexY + lowerZi; // Skip blocks already removed by trimZ
                         for (int z = lowerZ; z <= upperZ; z++, index += 16) {
                             arr.setRange(index, index + lowerX, BlockTypesCache.ReservedIDs.__RESERVED__);
-                            arr.setRange(index + upperX + 1, index + upperX + 16, BlockTypesCache.ReservedIDs.__RESERVED__);
+                            arr.setRange(index + upperX + 1, index + 16, BlockTypesCache.ReservedIDs.__RESERVED__);
                         }
                     }
                 }

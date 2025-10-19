@@ -20,26 +20,34 @@
 package com.sk89q.worldedit.fabric.mixin;
 
 import com.sk89q.worldedit.extension.platform.Watchdog;
-import net.minecraft.server.ServerTask;
+import com.sk89q.worldedit.fabric.internal.ExtendedMinecraftServer;
+import net.minecraft.Util;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.NonBlockingThreadExecutor;
-import net.minecraft.util.SystemUtil;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.LevelStorageSource;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
-@Mixin(MinecraftServer.class)
-public abstract class MixinMinecraftServer extends NonBlockingThreadExecutor<ServerTask> implements Watchdog {
+import java.nio.file.Path;
 
-    public MixinMinecraftServer(String name) {
-        super(name);
-    }
+@Mixin(MinecraftServer.class)
+public abstract class MixinMinecraftServer implements Watchdog, ExtendedMinecraftServer {
 
     @Shadow
-    private long timeReference;
+    private long nextTickTimeNanos;
+    @Final
+    @Shadow
+    protected LevelStorageSource.LevelStorageAccess storageSource;
 
     @Override
     public void tick() {
-        timeReference = SystemUtil.getMeasuringTimeMs();
+        nextTickTimeNanos = Util.getMillis();
+    }
+
+    @Override
+    public Path getStoragePath(Level world) {
+        return storageSource.getDimensionPath(world.dimension());
     }
 
 }

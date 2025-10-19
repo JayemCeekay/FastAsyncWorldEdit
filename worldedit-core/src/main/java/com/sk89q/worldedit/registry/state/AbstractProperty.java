@@ -50,7 +50,8 @@ public abstract class AbstractProperty<T> implements Property<T> {
         this.name = name;
         this.values = values;
         //FAWE end
-        this.numBits = MathMan.log2nlz(values.size());
+        // Use bitLength(values.size() - 1) so exact powers of two allocate the correct number of bits
+        this.numBits = MathMan.log2nlz(values.size() - 1);
         this.bitOffset = bitOffset + BlockTypesCache.BIT_OFFSET;
         this.bitMask = (((1 << numBits) - 1)) << this.bitOffset;
         this.bitMaskInverse = ~this.bitMask;

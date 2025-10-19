@@ -1,12 +1,12 @@
 rootProject.name = "FastAsyncWorldEdit"
 
 include("worldedit-libs")
-
+/*
 listOf("1_20_2", "1_20_4", "1_20_5", "1_21", "1_21_4", "1_21_5").forEach {
-   // include("worldedit-bukkit:adapters:adapter-$it")
-}
+    include("worldedit-bukkit:adapters:adapter-$it")
+}*/
 
-listOf("core", "cli").forEach {
+listOf("core", "fabric").forEach {
     include("worldedit-libs:$it")
     include("worldedit-$it")
 }

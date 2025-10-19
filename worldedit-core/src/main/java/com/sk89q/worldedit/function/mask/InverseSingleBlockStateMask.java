@@ -8,7 +8,7 @@ import com.sk89q.worldedit.world.block.BlockState;
 
 public class InverseSingleBlockStateMask extends ABlockMask {
 
-    private final char ordinal;
+    private final int ordinal;
     private final boolean isAir;
 
     public BlockState getBlockState() {
@@ -18,10 +18,10 @@ public class InverseSingleBlockStateMask extends ABlockMask {
     public InverseSingleBlockStateMask(Extent extent, BlockState state) {
         super(extent);
         isAir = state.isAir();
-        this.ordinal = state.getOrdinalChar();
+        this.ordinal = state.getOrdinal();
     }
 
-    private InverseSingleBlockStateMask(Extent extent, char ordinal, boolean isAir) {
+    private InverseSingleBlockStateMask(Extent extent, int ordinal, boolean isAir) {
         super(extent);
         this.ordinal = ordinal;
         this.isAir = isAir;
@@ -38,7 +38,7 @@ public class InverseSingleBlockStateMask extends ABlockMask {
 
     @Override
     public final boolean test(BlockState state) {
-        int test = state.getOrdinalChar();
+        int test = state.getOrdinal();
         if (isAir && test == 0) {
             return false;
         }

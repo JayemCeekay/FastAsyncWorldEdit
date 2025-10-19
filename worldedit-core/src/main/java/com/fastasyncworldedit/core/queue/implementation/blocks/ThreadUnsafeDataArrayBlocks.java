@@ -28,8 +28,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Equivalent to {@link CharSetBlocks} without any attempt to make thread-safe for improved performance.
- * This is currently only used as a "copy" of {@link CharSetBlocks} to provide to
+ * Equivalent to {@link DataArraySetBlocks} without any attempt to make thread-safe for improved performance.
+ * This is currently only used as a "copy" of {@link DataArraySetBlocks} to provide to
  * {@link com.fastasyncworldedit.core.queue.IBatchProcessor} instances for processing without overlapping the continuing edit.
  *
  * @since 2.6.2
@@ -38,7 +38,7 @@ public class ThreadUnsafeDataArrayBlocks implements IChunkSet, IBlocks {
 
     private static final Logger LOGGER = LogManagerCompat.getLogger();
 
-    private final char defaultOrdinal;
+    private final int defaultOrdinal;
     private final int chunkX;
     private final int chunkZ;
     private DataArray[] blocks;
@@ -57,7 +57,7 @@ public class ThreadUnsafeDataArrayBlocks implements IChunkSet, IBlocks {
     private SideEffectSet sideEffectSet;
 
     /**
-     * New instance given the data stored in a {@link CharSetBlocks} instance.
+     * New instance given the data stored in a {@link DataArraySetBlocks} instance.
      *
      * @since 2.6.2
      */
@@ -73,7 +73,7 @@ public class ThreadUnsafeDataArrayBlocks implements IChunkSet, IBlocks {
             HashSet<FaweCompoundTag> entities,
             HashSet<UUID> entityRemoves,
             Map<HeightMapType, int[]> heightMaps,
-            char defaultOrdinal,
+            int defaultOrdinal,
             boolean fastMode,
             int bitMask,
             SideEffectSet sideEffectSet,
@@ -236,7 +236,7 @@ public class ThreadUnsafeDataArrayBlocks implements IChunkSet, IBlocks {
         return setBiome(position.x(), position.y(), position.z(), biome);
     }
 
-    public void set(int x, int y, int z, char value) {
+    public void set(int x, int y, int z, int value) {
         final int layer = (y >> 4) - minSectionPosition;
         final int index = (y & 15) << 8 | z << 4 | x;
         try {
@@ -251,7 +251,7 @@ public class ThreadUnsafeDataArrayBlocks implements IChunkSet, IBlocks {
     @Override
     public <T extends BlockStateHolder<T>> boolean setBlock(int x, int y, int z, T holder) {
         updateSectionIndexRange(y >> 4);
-        set(x, y, z, holder.getOrdinalChar());
+        set(x, y, z, holder.getOrdinal());
         holder.applyTileEntity(this, x, y, z);
         return true;
     }

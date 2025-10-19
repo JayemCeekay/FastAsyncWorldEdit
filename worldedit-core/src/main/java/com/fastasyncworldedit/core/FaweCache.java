@@ -270,7 +270,8 @@ public enum FaweCache implements Trimable {
 
     public final CleanableThreadLocal<char[]> SECTION_BITS_TO_CHAR = new CleanableThreadLocal<>(() -> new char[4096]);
 
-    public final CleanableThreadLocal<int[]> PALETTE_TO_BLOCK = new CleanableThreadLocal<>(() -> new int[Character.MAX_VALUE + 1]);
+    public final CleanableThreadLocal<int[]> PALETTE_TO_BLOCK =
+            new CleanableThreadLocal<>(() -> new int[BlockTypesCache.states.length]);
 
     public final CleanableThreadLocal<char[]> PALETTE_TO_BLOCK_CHAR = new CleanableThreadLocal<>(
             () -> new char[Character.MAX_VALUE + 1], a -> {
@@ -278,7 +279,7 @@ public enum FaweCache implements Trimable {
     });
 
     public final CleanableThreadLocal<int[]> PALETTE_TO_BLOCK_INT = new CleanableThreadLocal<>(
-            () -> new int[BlockTypesCache.states.length + 1], a -> {
+            () -> new int[BlockTypesCache.states.length], a -> {
         Arrays.fill(a, Integer.MAX_VALUE);
     });
 

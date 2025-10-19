@@ -111,7 +111,7 @@ public class DataArraySetBlocks extends DataArrayBlocks implements IChunkSet {
     @Override
     public <T extends BlockStateHolder<T>> boolean setBlock(int x, int y, int z, T holder) {
         updateSectionIndexRange(y >> 4);
-        set(x, y, z, holder.getOrdinalChar());
+        set(x, y, z, holder.getOrdinal());
         holder.applyTileEntity(this, x, y, z);
         return true;
     }
